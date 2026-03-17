@@ -10,6 +10,7 @@ import HomeScreen from './screens/HomeScreen'
 import BookScreen from './screens/BookScreen'
 import ProfileScreen from './screens/ProfileScreen'
 import AdminScreen from './screens/AdminScreen'
+import CouponsScreen from './screens/CouponsScreen'
 
 const screenVariants = {
   enter: (direction) => ({
@@ -26,7 +27,7 @@ const screenVariants = {
   }),
 }
 
-const tabOrder = ['home', 'book', 'profile', 'admin']
+const tabOrder = ['home', 'book', 'coupons', 'profile', 'admin']
 
 export default function App() {
   const [ready, setReady] = useState(false)
@@ -79,6 +80,7 @@ export default function App() {
     switch (activeTab) {
       case 'home':    return <HomeScreen user={user} onNavigate={handleNavigate} />
       case 'book':    return <BookScreen user={user} />
+      case 'coupons': return isAdmin ? <CouponsScreen /> : <HomeScreen user={user} onNavigate={handleNavigate} />
       case 'profile': return <ProfileScreen user={user} onLogout={handleLogout} onNavigate={handleNavigate} onUserUpdate={handleUserUpdate} />
       case 'admin':   return isAdmin ? <AdminScreen /> : <HomeScreen user={user} onNavigate={handleNavigate} />
       default:        return <HomeScreen user={user} onNavigate={handleNavigate} />
