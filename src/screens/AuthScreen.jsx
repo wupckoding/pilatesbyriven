@@ -4,6 +4,7 @@ import { FiUser, FiPhone, FiLock, FiMail, FiArrowRight, FiEye, FiEyeOff, FiGlobe
 import { auth } from '../utils/data'
 import { config } from '../config'
 import Logo from '../components/Logo'
+import { useLanguage } from '../i18n/LanguageContext'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -36,6 +37,18 @@ const InputField = ({ icon: Icon, ...props }) => (
 )
 
 export default function AuthScreen({ onAuth }) {
+  const { language } = useLanguage()
+  const text = {
+    es: {
+      invalidName: 'Ingresa tu nombre', invalidSurname: 'Ingresa tu apellido', invalidEmail: 'Ingresa tu email', invalidEmailFormat: 'Email no válido', invalidPhone: 'Ingresa tu WhatsApp', invalidPass: 'Mínimo 4 caracteres', invalidLoginPass: 'Ingresa tu contraseña', connectionError: 'Error de conexión. Intenta de nuevo.', soon: 'Próximamente', soonDesc: 'Estamos desarrollando la plataforma. Pronto podrás registrarte con Google y Apple.', useEmail: 'Por ahora, usa tu', loginAction: 'iniciar sesión', registerAction: 'crear tu cuenta', understood: 'Entendido', welcomeBack: '¡Bienvenida de vuelta!', createAccount: 'Crea tu cuenta', login: 'Iniciar Sesión', register: 'Registrarse', orWithEmail: 'o con email', name: 'Nombre', surname: 'Apellido', email: 'Email', createPassword: 'Crea una contraseña', yourPassword: 'Tu contraseña', createAccountCta: 'Crear Cuenta', forgotPassword: '¿Olvidaste tu contraseña?', contactUs: 'Contáctanos', terms: 'Al crear tu cuenta, aceptas nuestros términos y condiciones.',
+    },
+    pt: {
+      invalidName: 'Digite seu nome', invalidSurname: 'Digite seu sobrenome', invalidEmail: 'Digite seu email', invalidEmailFormat: 'Email inválido', invalidPhone: 'Digite seu WhatsApp', invalidPass: 'Mínimo de 4 caracteres', invalidLoginPass: 'Digite sua senha', connectionError: 'Erro de conexão. Tente novamente.', soon: 'Em breve', soonDesc: 'Estamos desenvolvendo a plataforma. Em breve você poderá entrar com Google e Apple.', useEmail: 'Por enquanto, use seu', loginAction: 'entrar', registerAction: 'criar sua conta', understood: 'Entendi', welcomeBack: 'Bem-vinda de volta!', createAccount: 'Crie sua conta', login: 'Entrar', register: 'Cadastrar', orWithEmail: 'ou com email', name: 'Nome', surname: 'Sobrenome', email: 'Email', createPassword: 'Crie uma senha', yourPassword: 'Sua senha', createAccountCta: 'Criar Conta', forgotPassword: 'Esqueceu sua senha?', contactUs: 'Fale conosco', terms: 'Ao criar sua conta, você aceita nossos termos e condições.',
+    },
+    en: {
+      invalidName: 'Enter your first name', invalidSurname: 'Enter your last name', invalidEmail: 'Enter your email', invalidEmailFormat: 'Invalid email', invalidPhone: 'Enter your WhatsApp', invalidPass: 'Minimum 4 characters', invalidLoginPass: 'Enter your password', connectionError: 'Connection error. Try again.', soon: 'Coming soon', soonDesc: 'We are still building the platform. Soon you will be able to sign in with Google and Apple.', useEmail: 'For now, use your', loginAction: 'sign in', registerAction: 'create your account', understood: 'Understood', welcomeBack: 'Welcome back!', createAccount: 'Create your account', login: 'Sign In', register: 'Register', orWithEmail: 'or with email', name: 'First name', surname: 'Last name', email: 'Email', createPassword: 'Create a password', yourPassword: 'Your password', createAccountCta: 'Create Account', forgotPassword: 'Forgot your password?', contactUs: 'Contact us', terms: 'By creating your account, you accept our terms and conditions.',
+    },
+  }[language]
   const [mode, setMode] = useState('login')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -55,12 +68,12 @@ export default function AuthScreen({ onAuth }) {
 
     try {
       if (mode === 'register') {
-        if (!form.name.trim()) { setLoading(false); return setError('Ingresa tu nombre') }
-        if (!form.surname.trim()) { setLoading(false); return setError('Ingresa tu apellido') }
-        if (!form.email.trim()) { setLoading(false); return setError('Ingresa tu email') }
-        if (!form.email.includes('@')) { setLoading(false); return setError('Email no válido') }
-        if (!form.phone.trim()) { setLoading(false); return setError('Ingresa tu WhatsApp') }
-        if (form.password.length < 4) { setLoading(false); return setError('Mínimo 4 caracteres') }
+        if (!form.name.trim()) { setLoading(false); return setError(text.invalidName) }
+        if (!form.surname.trim()) { setLoading(false); return setError(text.invalidSurname) }
+        if (!form.email.trim()) { setLoading(false); return setError(text.invalidEmail) }
+        if (!form.email.includes('@')) { setLoading(false); return setError(text.invalidEmailFormat) }
+        if (!form.phone.trim()) { setLoading(false); return setError(text.invalidPhone) }
+        if (form.password.length < 4) { setLoading(false); return setError(text.invalidPass) }
 
         const result = await auth.register({
           name: form.name.trim(),
@@ -72,15 +85,15 @@ export default function AuthScreen({ onAuth }) {
         if (result.error) { setLoading(false); return setError(result.error) }
         onAuth(result.user)
       } else {
-        if (!form.email.trim()) { setLoading(false); return setError('Ingresa tu email') }
-        if (!form.password) { setLoading(false); return setError('Ingresa tu contraseña') }
+        if (!form.email.trim()) { setLoading(false); return setError(text.invalidEmail) }
+        if (!form.password) { setLoading(false); return setError(text.invalidLoginPass) }
 
         const result = await auth.login(form.email.trim(), form.password)
         if (result.error) { setLoading(false); return setError(result.error) }
         onAuth(result.user)
       }
     } catch {
-      setError('Error de conexión. Intenta de nuevo.')
+      setError(text.connectionError)
       setLoading(false)
     }
   }
@@ -108,19 +121,19 @@ export default function AuthScreen({ onAuth }) {
                 style={{ background: 'rgba(143,166,133,0.1)' }}>
                 <span className="text-[28px]">{'\u{1F6A7}'}</span>
               </div>
-              <h3 className="font-display text-[18px] font-bold text-charcoal mb-2">Pr{'ó'}ximamente</h3>
+              <h3 className="font-display text-[18px] font-bold text-charcoal mb-2">{text.soon}</h3>
               <p className="text-[13px] leading-relaxed mb-5" style={{ color: '#888' }}>
-                Estamos desarrollando la plataforma. Pronto podr{'á'}s registrarte con <strong style={{ color: '#333' }}>Google</strong> y <strong style={{ color: '#333' }}>Apple</strong>.
+                {text.soonDesc}
               </p>
               <p className="text-[12px] mb-5" style={{ color: '#C4AFA2' }}>
-                Por ahora, usa tu <strong style={{ color: '#C19C80' }}>email</strong> para {mode === 'login' ? 'iniciar sesi\u00f3n' : 'crear tu cuenta'}.
+                {text.useEmail} <strong style={{ color: '#C19C80' }}>email</strong> para {mode === 'login' ? text.loginAction : text.registerAction}.
               </p>
               <motion.button
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowOAuthPopup(false)}
                 className="w-full py-3.5 rounded-2xl text-[14px] font-semibold"
                 style={{ background: 'linear-gradient(135deg, #C19C80 0%, #A67D64 100%)', color: '#fff', boxShadow: '0 4px 16px rgba(193,156,128,0.3)' }}>
-                Entendido
+                {text.understood}
               </motion.button>
             </motion.div>
           </motion.div>
@@ -140,7 +153,7 @@ export default function AuthScreen({ onAuth }) {
             </div>
             <div className="w-8 h-[1px] mx-auto mb-3" style={{ background: 'rgba(193,156,128,0.25)' }} />
             <p className="text-[14px] font-normal" style={{ color: '#C4AFA2' }}>
-              {mode === 'login' ? '¡Bienvenida de vuelta!' : 'Crea tu cuenta'}
+              {mode === 'login' ? text.welcomeBack : text.createAccount}
             </p>
           </motion.div>
 
@@ -148,8 +161,8 @@ export default function AuthScreen({ onAuth }) {
           <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6 mt-4">
             <div className="rounded-full p-1 flex" style={{ background: 'rgba(193,156,128,0.08)' }}>
               {[
-                { id: 'login', label: 'Iniciar Sesión' },
-                { id: 'register', label: 'Registrarse' },
+                { id: 'login', label: text.login },
+                { id: 'register', label: text.register },
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -189,7 +202,7 @@ export default function AuthScreen({ onAuth }) {
 
             <div className="flex items-center gap-3 my-4">
               <div className="flex-1 h-[1px]" style={{ background: 'rgba(193,156,128,0.12)' }} />
-              <span className="text-[11px] font-medium" style={{ color: 'rgba(193,156,128,0.4)' }}>o con email</span>
+              <span className="text-[11px] font-medium" style={{ color: 'rgba(193,156,128,0.4)' }}>{text.orWithEmail}</span>
               <div className="flex-1 h-[1px]" style={{ background: 'rgba(193,156,128,0.12)' }} />
             </div>
           </motion.div>
@@ -209,8 +222,8 @@ export default function AuthScreen({ onAuth }) {
                   {mode === 'register' && (
                     <>
                       <div className="grid grid-cols-2 gap-3">
-                        <InputField icon={FiUser} type="text" value={form.name} onChange={set('name')} placeholder="Nombre" />
-                        <InputField icon={FiUser} type="text" value={form.surname} onChange={set('surname')} placeholder="Apellido" />
+                        <InputField icon={FiUser} type="text" value={form.name} onChange={set('name')} placeholder={text.name} />
+                        <InputField icon={FiUser} type="text" value={form.surname} onChange={set('surname')} placeholder={text.surname} />
                       </div>
 
                       <div className="relative">
@@ -242,14 +255,14 @@ export default function AuthScreen({ onAuth }) {
                     </>
                   )}
 
-                  <InputField icon={FiMail} type="email" value={form.email} onChange={set('email')} placeholder="Email" autoComplete="email" />
+                  <InputField icon={FiMail} type="email" value={form.email} onChange={set('email')} placeholder={text.email} autoComplete="email" />
 
                   <div className="relative">
                     <FiLock className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#C4AFA2' }} size={16} />
                     <input
                       type={showPass ? 'text' : 'password'}
                       value={form.password} onChange={set('password')}
-                      placeholder={mode === 'register' ? 'Crea una contraseña' : 'Tu contraseña'}
+                      placeholder={mode === 'register' ? text.createPassword : text.yourPassword}
                       className="w-full py-[14px] pl-12 pr-12 rounded-2xl text-[14px] outline-none transition-all focus:ring-2 focus:ring-gold/20"
                       style={{ background: 'rgba(193,156,128,0.06)', border: '1px solid rgba(193,156,128,0.1)', color: '#333' }}
                     />
@@ -278,7 +291,7 @@ export default function AuthScreen({ onAuth }) {
                   <FiLoader size={16} className="animate-spin" />
                 ) : (
                   <>
-                    {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
+                    {mode === 'login' ? text.login : text.createAccountCta}
                     <FiArrowRight size={15} />
                   </>
                 )}
@@ -287,17 +300,17 @@ export default function AuthScreen({ onAuth }) {
 
             {mode === 'login' && (
               <p className="text-center mt-5 text-[12px]" style={{ color: '#C4AFA2' }}>
-                {'¿'}Olvidaste tu contrase{'ñ'}a?{' '}
+                {text.forgotPassword}{' '}
                 <button type="button"
                   onClick={() => window.open(`https://wa.me/${config.WHATSAPP_NUMBER}?text=¡Hola! Olvidé mi contraseña de la app.`, '_blank')}
                   className="font-semibold" style={{ color: '#C19C80' }}>
-                  Contáctanos
+                  {text.contactUs}
                 </button>
               </p>
             )}
             {mode === 'register' && (
               <p className="text-center mt-5 text-[11px] leading-relaxed" style={{ color: 'rgba(193,156,128,0.4)' }}>
-                Al crear tu cuenta, aceptas nuestros términos y condiciones.
+                {text.terms}
               </p>
             )}
           </motion.div>

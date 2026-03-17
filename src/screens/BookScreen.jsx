@@ -254,7 +254,7 @@ export default function BookScreen({ user }) {
           <motion.div custom={0} variants={fadeUp} initial="hidden" animate="show" className="mb-4">
             <h1 className="font-display text-[22px] font-semibold text-charcoal tracking-tight">Reservar (Admin)</h1>
             <p className="text-[13px] mt-0.5" style={{ color: '#C4AFA2' }}>
-              Cria horários, define cupos e preço direto nesta aba
+              Crea horarios y define cupos y precio directo en esta pestaña
             </p>
           </motion.div>
 

@@ -1,8 +1,18 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import Logo from '../components/Logo'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function WelcomeScreen({ onStart }) {
+  const { language } = useLanguage()
+  const copy = {
+    es: { subtitle: 'Tu estudio privado', detail: 'Reformer · Cadillac · Personalizado', cta: 'Empezar' },
+    pt: { subtitle: 'Seu estúdio privado', detail: 'Reformer · Cadillac · Personalizado', cta: 'Começar' },
+    en: { subtitle: 'Your private studio', detail: 'Reformer · Cadillac · Personalized', cta: 'Start' },
+  }[language] || {
+    subtitle: 'Tu estudio privado', detail: 'Reformer · Cadillac · Personalizado', cta: 'Empezar',
+  }
+
   return (
     <div className="fixed inset-0 z-[90] flex flex-col overflow-hidden"
       style={{ background: '#FFFFFF' }}>
@@ -64,7 +74,7 @@ export default function WelcomeScreen({ onStart }) {
             className="text-center font-display text-[18px] font-normal leading-relaxed"
             style={{ color: '#A08878' }}
           >
-            Tu estudio privado
+            {copy.subtitle}
           </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 10 }}
@@ -73,7 +83,7 @@ export default function WelcomeScreen({ onStart }) {
             className="text-center text-[14px] leading-relaxed mt-2"
             style={{ color: '#C4AFA2' }}
           >
-            Reformer · Cadillac · Personalizado
+            {copy.detail}
           </motion.p>
         </div>
 
@@ -99,7 +109,7 @@ export default function WelcomeScreen({ onStart }) {
               letterSpacing: '0.15em',
             }}
           >
-            Empezar
+            {copy.cta}
           </button>
 
           <motion.p

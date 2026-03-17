@@ -4,6 +4,7 @@ import { FiMapPin, FiPhone, FiClock, FiInstagram, FiHeart, FiMessageCircle, FiCh
 import { QRCodeSVG } from 'qrcode.react'
 import { bookings, auth, statusConfig } from '../utils/data'
 import { config } from '../config'
+import { useLanguage } from '../i18n/LanguageContext'
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14 },
@@ -16,6 +17,18 @@ const fadeUp = {
 const classTypeLabels = { 'semi-grupal': 'Semi-grupal', 'duo': 'Dúo', 'privada': 'Privada', 'mat': 'MAT' }
 
 export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate }) {
+  const { language, setLanguage, languageOptions, dateLocale } = useLanguage()
+  const text = {
+    es: {
+      overview: 'Resumen', history: 'Historial', settings: 'Ajustes', upcoming: 'Próximas clases', noClasses: 'Sin clases agendadas', bookClass: 'Agendar clase', waitlist: 'Lista de espera', notifications: 'Notificaciones', noUpdates: 'Aún no hay novedades.', historyTitle: 'Todas tus clases', all: 'Todas', upcomingShort: 'Por hacer', done: 'Hechas', month: 'Mes', allMonths: 'Todos los meses', noFilterClasses: 'Sin clases en este filtro', loadMore: 'Cargar más', languageTitle: 'Idioma de la app', languageDesc: 'Cambia el idioma de navegación y de las pantallas principales.', contact: 'Contacto', logout: 'Cerrar sesión', upcomingStat: 'Próximas', settingsSaved: 'Listo',
+    },
+    pt: {
+      overview: 'Resumo', history: 'Histórico', settings: 'Ajustes', upcoming: 'Próximas aulas', noClasses: 'Sem aulas agendadas', bookClass: 'Agendar aula', waitlist: 'Lista de espera', notifications: 'Notificações', noUpdates: 'Ainda não há novidades.', historyTitle: 'Todas as suas aulas', all: 'Todas', upcomingShort: 'A fazer', done: 'Concluídas', month: 'Mês', allMonths: 'Todos os meses', noFilterClasses: 'Sem aulas neste filtro', loadMore: 'Carregar mais', languageTitle: 'Idioma do app', languageDesc: 'Troque o idioma da navegação e das telas principais.', contact: 'Contato', logout: 'Sair', upcomingStat: 'Próximas', settingsSaved: 'Pronto',
+    },
+    en: {
+      overview: 'Overview', history: 'History', settings: 'Settings', upcoming: 'Upcoming classes', noClasses: 'No classes scheduled', bookClass: 'Book class', waitlist: 'Waitlist', notifications: 'Notifications', noUpdates: 'No updates yet.', historyTitle: 'All your classes', all: 'All', upcomingShort: 'Upcoming', done: 'Done', month: 'Month', allMonths: 'All months', noFilterClasses: 'No classes for this filter', loadMore: 'Load more', languageTitle: 'App language', languageDesc: 'Change navigation and main screen language.', contact: 'Contact', logout: 'Log out', upcomingStat: 'Upcoming', settingsSaved: 'Done',
+    },
+  }[language]
   const initial = user?.name?.[0]?.toUpperCase() || 'U'
   const [myBookings, setMyBookings] = useState([])
   const [myWaitlist, setMyWaitlist] = useState([])
@@ -30,6 +43,8 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
   const [rescheduleSaving, setRescheduleSaving] = useState(false)
   const [profileTab, setProfileTab] = useState('overview')
   const [historyFilter, setHistoryFilter] = useState('all')
+  const [historyMonth, setHistoryMonth] = useState('all')
+  const [visibleHistoryCount, setVisibleHistoryCount] = useState(12)
 
   const [passBooking, setPassBooking] = useState(null)
 
@@ -73,6 +88,11 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
   const pendingWaitlist = myWaitlist.filter((w) => w.status === 'pending')
   const latestNotifications = notifications.slice(0, 5)
 
+  const historyMonthOptions = useMemo(() => {
+    const keys = [...new Set(myBookings.map((booking) => String(booking.date || '').slice(0, 7)).filter(Boolean))]
+    return keys.sort((left, right) => right.localeCompare(left))
+  }, [myBookings])
+
   const historyBookings = useMemo(() => {
     const today = new Date().toISOString().split('T')[0]
     const sorted = [...myBookings].sort((a, b) => {
@@ -81,14 +101,27 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
       return bKey.localeCompare(aKey)
     })
 
+    const monthFiltered = historyMonth === 'all'
+      ? sorted
+      : sorted.filter((booking) => String(booking.date || '').startsWith(historyMonth))
+
     if (historyFilter === 'upcoming') {
-      return sorted.filter((b) => b.date >= today && b.status !== 'cancelled')
+      return monthFiltered.filter((b) => b.date >= today && b.status !== 'cancelled')
     }
     if (historyFilter === 'done') {
-      return sorted.filter((b) => b.status === 'completed')
+      return monthFiltered.filter((b) => b.status === 'completed')
     }
-    return sorted
-  }, [historyFilter, myBookings])
+    return monthFiltered
+  }, [historyFilter, historyMonth, myBookings])
+
+  const visibleHistoryBookings = useMemo(
+    () => historyBookings.slice(0, visibleHistoryCount),
+    [historyBookings, visibleHistoryCount],
+  )
+
+  useEffect(() => {
+    setVisibleHistoryCount(12)
+  }, [historyFilter, historyMonth])
 
   const handleCancel = useCallback((bookingId) => {
     setCancelingId(bookingId)
@@ -232,7 +265,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
               </div>
               <div>
                 <p className="font-display text-[18px] font-bold text-white">{upcomingBookings.length}</p>
-                <p className="text-[9px] text-white/25 uppercase tracking-wider font-semibold">Próximas</p>
+                <p className="text-[9px] text-white/25 uppercase tracking-wider font-semibold">{text.upcomingStat}</p>
               </div>
               <div>
                 <p className="font-display text-[18px] font-bold text-white">{pendingWaitlist.length}</p>
@@ -244,7 +277,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
         </motion.div>
 
         <motion.div custom={0.5} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-          <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl" style={{ background: 'rgba(0,0,0,0.03)' }}>
+          <div className="grid grid-cols-3 gap-2 p-1 rounded-2xl" style={{ background: 'rgba(0,0,0,0.03)' }}>
             <button
               onClick={() => setProfileTab('overview')}
               className="py-2.5 rounded-xl text-[12px] font-semibold transition-all"
@@ -253,7 +286,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                 color: profileTab === 'overview' ? '#fff' : '#666',
               }}
             >
-              Resumen
+              {text.overview}
             </button>
             <button
               onClick={() => setProfileTab('history')}
@@ -263,14 +296,24 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                 color: profileTab === 'history' ? '#fff' : '#666',
               }}
             >
-              Historial
+              {text.history}
+            </button>
+            <button
+              onClick={() => setProfileTab('settings')}
+              className="py-2.5 rounded-xl text-[12px] font-semibold transition-all"
+              style={{
+                background: profileTab === 'settings' ? '#1A1A1A' : 'transparent',
+                color: profileTab === 'settings' ? '#fff' : '#666',
+              }}
+            >
+              {text.settings}
             </button>
           </div>
         </motion.div>
 
         {/* ── Upcoming bookings ── */}
         {profileTab === 'overview' && <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-          <p className="section-label">Próximas Clases</p>
+          <p className="section-label">{text.upcoming}</p>
           {loading ? (
             <div className="space-y-2 animate-pulse">
               {[1, 2].map(i => <div key={i} className="h-16 rounded-2xl" style={{ background: 'rgba(0,0,0,0.03)' }} />)}
@@ -278,18 +321,18 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
           ) : upcomingBookings.length === 0 ? (
             <div className="text-center py-8 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
               <FiCalendar size={24} className="mx-auto mb-3" style={{ color: '#C4AFA2' }} />
-              <p className="text-[13px] font-medium text-charcoal/30">Sin clases agendadas</p>
+              <p className="text-[13px] font-medium text-charcoal/30">{text.noClasses}</p>
               <button onClick={() => onNavigate?.('book')}
                 className="mt-3 px-5 py-2 rounded-xl text-[12px] font-semibold tap"
                 style={{ background: 'rgba(193,156,128,0.08)', color: '#C19C80' }}>
-                Agendar clase
+                {text.bookClass}
               </button>
             </div>
           ) : (
             <div className="space-y-2">
               {upcomingBookings.map(b => {
                 const s = statusConfig[b.status]
-                const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+                const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })
                 const timeStr = b.time === '07:00' ? '7:00 AM' : '6:00 PM'
                 const canCancel = b.status === 'pending' || b.status === 'approved'
 
@@ -345,7 +388,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
 
         {profileTab === 'overview' && (
           <motion.div custom={1.5} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-            <p className="section-label">Lista de espera</p>
+            <p className="section-label">{text.waitlist}</p>
             <div className="space-y-2">
               {loadingExtras ? (
                 <div className="h-16 rounded-2xl animate-pulse" style={{ background: 'rgba(0,0,0,0.03)' }} />
@@ -355,7 +398,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                 </div>
               ) : (
                 pendingWaitlist.slice(0, 3).map((w) => {
-                  const dateStr = new Date(w.date + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+                  const dateStr = new Date(w.date + 'T12:00:00').toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })
                   return (
                     <div key={w.id} className="p-3.5 rounded-2xl bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                       <p className="text-[12px] font-semibold text-charcoal">{classTypeLabels[w.classType]} · {w.time === '07:00' ? '7:00 AM' : '6:00 PM'}</p>
@@ -373,14 +416,14 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
 
         {profileTab === 'overview' && (
           <motion.div custom={1.8} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-            <p className="section-label">Notificaciones</p>
+            <p className="section-label">{text.notifications}</p>
             <div className="space-y-2">
               {loadingExtras ? (
                 <div className="h-16 rounded-2xl animate-pulse" style={{ background: 'rgba(0,0,0,0.03)' }} />
               ) : latestNotifications.length === 0 ? (
                 <div className="text-center py-5 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
                   <FiBell size={18} className="mx-auto mb-2" style={{ color: '#C4AFA2' }} />
-                  <p className="text-[12px] text-charcoal/35">Aún no hay novedades.</p>
+                  <p className="text-[12px] text-charcoal/35">{text.noUpdates}</p>
                 </div>
               ) : (
                 latestNotifications.map((n) => (
@@ -417,7 +460,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                   <div className="space-y-1.5">
                     {pastBookings.slice(0, 10).map(b => {
                       const s = statusConfig[b.status]
-                      const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString('es-CR', { day: 'numeric', month: 'short' })
+                      const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString(dateLocale, { day: 'numeric', month: 'short' })
                       return (
                         <div key={b.id} className="flex items-center gap-3 p-3 rounded-xl"
                           style={{ background: 'rgba(0,0,0,0.02)' }}>
@@ -440,13 +483,13 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
         {/* ── Dedicated history tab ── */}
         {profileTab === 'history' && (
           <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-            <p className="section-label">Todas tus clases</p>
+            <p className="section-label">{text.historyTitle}</p>
 
-            <div className="flex gap-2 mb-3">
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
               {[
-                { id: 'all', label: `Todas (${myBookings.length})` },
-                { id: 'upcoming', label: `Por hacer (${upcomingBookings.length})` },
-                { id: 'done', label: `Hechas (${totalClasses})` },
+                { id: 'all', label: `${text.all} (${myBookings.length})` },
+                { id: 'upcoming', label: `${text.upcomingShort} (${upcomingBookings.length})` },
+                { id: 'done', label: `${text.done} (${totalClasses})` },
               ].map((item) => (
                 <button
                   key={item.id}
@@ -462,16 +505,39 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
               ))}
             </div>
 
+            <div className="mb-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mb-2" style={{ color: '#C4AFA2' }}>{text.month}</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                <button
+                  onClick={() => setHistoryMonth('all')}
+                  className="px-3 py-2 rounded-xl text-[11px] font-semibold"
+                  style={{ background: historyMonth === 'all' ? '#1A1A1A' : 'rgba(0,0,0,0.04)', color: historyMonth === 'all' ? '#fff' : '#666' }}
+                >
+                  {text.allMonths}
+                </button>
+                {historyMonthOptions.map((monthKey) => (
+                  <button
+                    key={monthKey}
+                    onClick={() => setHistoryMonth(monthKey)}
+                    className="px-3 py-2 rounded-xl text-[11px] font-semibold whitespace-nowrap"
+                    style={{ background: historyMonth === monthKey ? '#1A1A1A' : 'rgba(0,0,0,0.04)', color: historyMonth === monthKey ? '#fff' : '#666' }}
+                  >
+                    {new Date(`${monthKey}-01T12:00:00`).toLocaleDateString(dateLocale, { month: 'long', year: 'numeric' })}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {historyBookings.length === 0 ? (
               <div className="text-center py-8 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
                 <FiCalendar size={24} className="mx-auto mb-3" style={{ color: '#C4AFA2' }} />
-                <p className="text-[13px] font-medium text-charcoal/30">Sin clases en este filtro</p>
+                <p className="text-[13px] font-medium text-charcoal/30">{text.noFilterClasses}</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {historyBookings.map((b) => {
+                {visibleHistoryBookings.map((b) => {
                   const s = statusConfig[b.status]
-                  const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+                  const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString(dateLocale, { weekday: 'short', day: 'numeric', month: 'short' })
                   const timeStr = b.time === '07:00' ? '7:00 AM' : '6:00 PM'
                   const canShowPass = b.status === 'approved' || b.status === 'completed'
 
@@ -524,14 +590,44 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                     </div>
                   )
                 })}
+                {visibleHistoryBookings.length < historyBookings.length && (
+                  <button
+                    onClick={() => setVisibleHistoryCount((current) => current + 12)}
+                    className="w-full py-3 rounded-2xl text-[12px] font-semibold tap"
+                    style={{ background: 'rgba(193,156,128,0.12)', color: '#8B6B53' }}
+                  >
+                    {text.loadMore}
+                  </button>
+                )}
               </div>
             )}
           </motion.div>
         )}
 
+        {profileTab === 'settings' && (
+          <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+            <div className="rounded-3xl p-4 bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <p className="section-label mb-2">{text.languageTitle}</p>
+              <p className="text-[12px] mb-4" style={{ color: '#C4AFA2' }}>{text.languageDesc}</p>
+              <div className="grid grid-cols-3 gap-2">
+                {languageOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setLanguage(option.id)}
+                    className="py-3 rounded-2xl text-[12px] font-semibold transition-all"
+                    style={{ background: language === option.id ? '#1A1A1A' : 'rgba(0,0,0,0.04)', color: language === option.id ? '#fff' : '#666' }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Quick links ── */}
         <motion.div custom={3} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
-          <p className="section-label">Contacto</p>
+          <p className="section-label">{text.contact}</p>
           <div className="space-y-2">
             {[
               { icon: FiMessageCircle, label: 'WhatsApp', desc: 'Hablar con el studio', color: '#25D366', bg: 'rgba(37,211,102,0.06)',
@@ -566,7 +662,7 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
           <button onClick={onLogout}
             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-[12px] font-semibold tap transition-colors"
             style={{ background: 'rgba(196,131,142,0.06)', color: '#C4838E' }}>
-            <FiLogOut size={14} /> Cerrar sesión
+            <FiLogOut size={14} /> {text.logout}
           </button>
         </motion.div>
 
@@ -583,8 +679,8 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
         {passBooking && (() => {
           const b = passBooking
           const dateObj = new Date(b.date + 'T12:00:00')
-          const dayName = dateObj.toLocaleDateString('es-CR', { weekday: 'long' })
-          const dateStr = dateObj.toLocaleDateString('es-CR', { day: 'numeric', month: 'long', year: 'numeric' })
+          const dayName = dateObj.toLocaleDateString(dateLocale, { weekday: 'long' })
+          const dateStr = dateObj.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
           const timeStr = b.time === '07:00' ? '7:00 AM' : '6:00 PM'
           const endTime = b.time === '07:00' ? '8:15 AM' : '7:15 PM'
           const passCode = b.id.toUpperCase().slice(-8)
