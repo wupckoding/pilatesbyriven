@@ -766,8 +766,8 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
-              style={{ background: '#FAF8F5' }}>
+              className="fixed left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
+              style={{ background: '#FAF8F5', bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
               <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: 'rgba(0,0,0,0.08)' }} />
               <h3 className="font-display text-[18px] font-semibold text-charcoal mb-1 text-center">Reagendar clase</h3>
               <p className="text-[12px] text-center mb-5" style={{ color: '#C4AFA2' }}>
@@ -818,8 +818,8 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
             <motion.div
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
-              style={{ background: '#FAF8F5' }}>
+              className="fixed left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
+              style={{ background: '#FAF8F5', bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
               <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: 'rgba(0,0,0,0.08)' }} />
               <div className="text-center">
                 <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3"
