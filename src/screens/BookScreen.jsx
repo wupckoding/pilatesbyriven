@@ -522,7 +522,7 @@ export default function BookScreen({ user }) {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
               className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl flex flex-col"
-              style={{ background: '#FAF8F5', maxHeight: '88vh' }}
+              style={{ background: '#FAF8F5', maxHeight: 'min(82vh, 580px)' }}
             >
               {/* Handle */}
               <div className="w-10 h-1 rounded-full mx-auto mt-4 mb-3 flex-shrink-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
@@ -545,8 +545,8 @@ export default function BookScreen({ user }) {
                 </motion.div>
               ) : (
                 <>
-                  {/* Scrollable content area */}
-                  <div className="overflow-y-auto flex-1 px-6">
+                  {/* Scrollable content area — min-height:0 is required to allow flex children to shrink */}
+                  <div className="overflow-y-auto flex-1 px-6" style={{ minHeight: 0 }}>
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="font-display text-[18px] font-semibold text-charcoal">Confirmar Reserva</h3>
@@ -608,8 +608,12 @@ export default function BookScreen({ user }) {
 
                   {/* Sticky action button — always visible, respects safe-area */}
                   <div
-                    className="px-6 pt-3 flex-shrink-0 bg-transparent"
-                    style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+                    className="px-6 pt-3 flex-shrink-0"
+                    style={{
+                      background: '#FAF8F5',
+                      boxShadow: '0 -12px 20px 4px #FAF8F5',
+                      paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
+                    }}
                   >
                     {selectedSlot.spots <= 0 ? (
                       <button onClick={handleJoinWaitlist} disabled={joiningWaitlist} className="w-full py-4 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#875D4A', boxShadow: '0 4px 16px rgba(135,93,74,0.3)' }}>
