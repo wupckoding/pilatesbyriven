@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { FiMapPin, FiPhone, FiClock, FiInstagram, FiHeart, FiMessageCircle, FiChevronRight, FiLogOut, FiUser, FiMail, FiX, FiCalendar, FiEdit2, FiCheck, FiLoader, FiSmartphone } from 'react-icons/fi'
+import { FiMapPin, FiPhone, FiClock, FiInstagram, FiHeart, FiMessageCircle, FiChevronRight, FiLogOut, FiMail, FiX, FiCalendar, FiEdit2, FiCheck, FiLoader, FiSmartphone, FiBell, FiRefreshCw } from 'react-icons/fi'
 import { QRCodeSVG } from 'qrcode.react'
 import { bookings, auth, statusConfig } from '../utils/data'
 import { config } from '../config'
@@ -18,27 +18,48 @@ const classTypeLabels = { 'semi-grupal': 'Semi-grupal', 'duo': 'Dúo', 'privada'
 export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate }) {
   const initial = user?.name?.[0]?.toUpperCase() || 'U'
   const [myBookings, setMyBookings] = useState([])
+  const [myWaitlist, setMyWaitlist] = useState([])
+  const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingExtras, setLoadingExtras] = useState(true)
   const [showAllBookings, setShowAllBookings] = useState(false)
   const [cancelingId, setCancelingId] = useState(null)
+  const [reschedulingBooking, setReschedulingBooking] = useState(null)
+  const [rescheduleForm, setRescheduleForm] = useState({ date: '', time: '07:00' })
+  const [rescheduleError, setRescheduleError] = useState('')
+  const [rescheduleSaving, setRescheduleSaving] = useState(false)
+  const [profileTab, setProfileTab] = useState('overview')
+  const [historyFilter, setHistoryFilter] = useState('all')
 
   const [passBooking, setPassBooking] = useState(null)
 
   // Profile editing
   const [editing, setEditing] = useState(false)
-  const [editForm, setEditForm] = useState({ name: '', surname: '', phone: '' })
+  const [editForm, setEditForm] = useState({ name: '', surname: '', phone: '', objective: '', profileLevel: 'beginner', restrictions: '' })
   const [editError, setEditError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  const refreshProfileData = useCallback(async () => {
+    const [bookingData, waitlistData, notifData] = await Promise.all([
+      bookings.getByUser(),
+      bookings.getMyWaitlist(),
+      bookings.getNotifications(30),
+    ])
+    setMyBookings(bookingData)
+    setMyWaitlist(waitlistData)
+    setNotifications(notifData)
+  }, [])
 
   // Fetch bookings from API
   useEffect(() => {
     if (!user?.id) return
     setLoading(true)
-    bookings.getByUser().then(data => {
-      setMyBookings(data)
+    setLoadingExtras(true)
+    refreshProfileData().finally(() => {
       setLoading(false)
+      setLoadingExtras(false)
     })
-  }, [user])
+  }, [user, refreshProfileData])
 
   const upcomingBookings = myBookings
     .filter(b => b.date >= new Date().toISOString().split('T')[0] && b.status !== 'cancelled')
@@ -49,6 +70,25 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
     .sort((a, b) => b.date.localeCompare(a.date))
 
   const totalClasses = myBookings.filter(b => b.status === 'completed').length
+  const pendingWaitlist = myWaitlist.filter((w) => w.status === 'pending')
+  const latestNotifications = notifications.slice(0, 5)
+
+  const historyBookings = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0]
+    const sorted = [...myBookings].sort((a, b) => {
+      const aKey = `${a.date || ''}_${a.time || ''}`
+      const bKey = `${b.date || ''}_${b.time || ''}`
+      return bKey.localeCompare(aKey)
+    })
+
+    if (historyFilter === 'upcoming') {
+      return sorted.filter((b) => b.date >= today && b.status !== 'cancelled')
+    }
+    if (historyFilter === 'done') {
+      return sorted.filter((b) => b.status === 'completed')
+    }
+    return sorted
+  }, [historyFilter, myBookings])
 
   const handleCancel = useCallback((bookingId) => {
     setCancelingId(bookingId)
@@ -58,13 +98,42 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
     if (!cancelingId) return
     await bookings.cancel(cancelingId)
     setCancelingId(null)
-    // Refresh bookings
-    const data = await bookings.getByUser()
-    setMyBookings(data)
-  }, [cancelingId])
+    await refreshProfileData()
+  }, [cancelingId, refreshProfileData])
+
+  const startReschedule = useCallback((booking) => {
+    setRescheduleForm({ date: booking.date || '', time: booking.time || '07:00' })
+    setRescheduleError('')
+    setReschedulingBooking(booking)
+  }, [])
+
+  const submitReschedule = useCallback(async () => {
+    if (!reschedulingBooking?.id) return
+    if (!rescheduleForm.date || !rescheduleForm.time) {
+      setRescheduleError('Selecciona fecha y horario')
+      return
+    }
+    setRescheduleSaving(true)
+    setRescheduleError('')
+    const result = await bookings.rescheduleSelf(reschedulingBooking.id, rescheduleForm.date, rescheduleForm.time)
+    setRescheduleSaving(false)
+    if (result.error) {
+      setRescheduleError(result.error)
+      return
+    }
+    setReschedulingBooking(null)
+    await refreshProfileData()
+  }, [refreshProfileData, rescheduleForm.date, rescheduleForm.time, reschedulingBooking])
 
   const startEditing = () => {
-    setEditForm({ name: user?.name || '', surname: user?.surname || '', phone: user?.phone || '' })
+    setEditForm({
+      name: user?.name || '',
+      surname: user?.surname || '',
+      phone: user?.phone || '',
+      objective: user?.objective || '',
+      profileLevel: user?.profileLevel || 'beginner',
+      restrictions: user?.restrictions || '',
+    })
     setEditError('')
     setEditing(true)
   }
@@ -77,6 +146,9 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
       name: editForm.name.trim(),
       surname: editForm.surname.trim(),
       phone: editForm.phone.trim(),
+      objective: editForm.objective.trim(),
+      profileLevel: editForm.profileLevel,
+      restrictions: editForm.restrictions.trim(),
     })
     setSaving(false)
     if (result.error) return setEditError(result.error)
@@ -106,6 +178,17 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                         placeholder="Apellido" className="w-full bg-white/10 text-white text-[14px] rounded-xl px-3 py-2 outline-none placeholder:text-white/20" />
                       <input type="tel" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
                         placeholder="WhatsApp" className="w-full bg-white/10 text-white text-[14px] rounded-xl px-3 py-2 outline-none placeholder:text-white/20" />
+                      <input type="text" value={editForm.objective} onChange={e => setEditForm({ ...editForm, objective: e.target.value })}
+                        placeholder="Objetivo (fuerza, movilidad, etc.)" className="w-full bg-white/10 text-white text-[14px] rounded-xl px-3 py-2 outline-none placeholder:text-white/20" />
+                      <select value={editForm.profileLevel} onChange={e => setEditForm({ ...editForm, profileLevel: e.target.value })}
+                        className="w-full bg-white/10 text-white text-[14px] rounded-xl px-3 py-2 outline-none">
+                        <option value="beginner" style={{ color: '#1A1A1A' }}>Principiante</option>
+                        <option value="intermediate" style={{ color: '#1A1A1A' }}>Intermedio</option>
+                        <option value="advanced" style={{ color: '#1A1A1A' }}>Avanzado</option>
+                      </select>
+                      <textarea value={editForm.restrictions} onChange={e => setEditForm({ ...editForm, restrictions: e.target.value })}
+                        rows={2} placeholder="Restricciones o lesiones a considerar"
+                        className="w-full bg-white/10 text-white text-[14px] rounded-xl px-3 py-2 outline-none placeholder:text-white/20 resize-none" />
                       {editError && <p className="text-[11px] text-rose">{editError}</p>}
                       <div className="flex gap-2 pt-1">
                         <button onClick={() => setEditing(false)} className="flex-1 py-2 rounded-xl text-[12px] font-semibold text-white/40 bg-white/5">Cancelar</button>
@@ -151,13 +234,42 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                 <p className="font-display text-[18px] font-bold text-white">{upcomingBookings.length}</p>
                 <p className="text-[9px] text-white/25 uppercase tracking-wider font-semibold">Próximas</p>
               </div>
+              <div>
+                <p className="font-display text-[18px] font-bold text-white">{pendingWaitlist.length}</p>
+                <p className="text-[9px] text-white/25 uppercase tracking-wider font-semibold">Espera</p>
+              </div>
             </div>
           </div>
           </div>
         </motion.div>
 
+        <motion.div custom={0.5} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+          <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl" style={{ background: 'rgba(0,0,0,0.03)' }}>
+            <button
+              onClick={() => setProfileTab('overview')}
+              className="py-2.5 rounded-xl text-[12px] font-semibold transition-all"
+              style={{
+                background: profileTab === 'overview' ? '#1A1A1A' : 'transparent',
+                color: profileTab === 'overview' ? '#fff' : '#666',
+              }}
+            >
+              Resumen
+            </button>
+            <button
+              onClick={() => setProfileTab('history')}
+              className="py-2.5 rounded-xl text-[12px] font-semibold transition-all"
+              style={{
+                background: profileTab === 'history' ? '#1A1A1A' : 'transparent',
+                color: profileTab === 'history' ? '#fff' : '#666',
+              }}
+            >
+              Historial
+            </button>
+          </div>
+        </motion.div>
+
         {/* ── Upcoming bookings ── */}
-        <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+        {profileTab === 'overview' && <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
           <p className="section-label">Próximas Clases</p>
           {loading ? (
             <div className="space-y-2 animate-pulse">
@@ -216,16 +328,81 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                           <FiX size={15} style={{ color: '#C4838E' }} />
                         </button>
                       )}
+                      {canCancel && (
+                        <button onClick={() => startReschedule(b)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center tap"
+                          style={{ background: 'rgba(193,156,128,0.12)' }}>
+                          <FiRefreshCw size={14} style={{ color: '#C19C80' }} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 )
               })}
             </div>
           )}
-        </motion.div>
+        </motion.div>}
 
-        {/* ── Historial ── */}
-        {pastBookings.length > 0 && (
+        {profileTab === 'overview' && (
+          <motion.div custom={1.5} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+            <p className="section-label">Lista de espera</p>
+            <div className="space-y-2">
+              {loadingExtras ? (
+                <div className="h-16 rounded-2xl animate-pulse" style={{ background: 'rgba(0,0,0,0.03)' }} />
+              ) : pendingWaitlist.length === 0 ? (
+                <div className="text-center py-5 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                  <p className="text-[12px] text-charcoal/35">No estás en lista de espera ahora.</p>
+                </div>
+              ) : (
+                pendingWaitlist.slice(0, 3).map((w) => {
+                  const dateStr = new Date(w.date + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+                  return (
+                    <div key={w.id} className="p-3.5 rounded-2xl bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <p className="text-[12px] font-semibold text-charcoal">{classTypeLabels[w.classType]} · {w.time === '07:00' ? '7:00 AM' : '6:00 PM'}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#C4AFA2' }}>{dateStr}</p>
+                      <p className="text-[11px] mt-1.5" style={{ color: '#8FA685' }}>
+                        Posición en fila: <span className="font-bold">#{w.position || 1}</span>
+                      </p>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {profileTab === 'overview' && (
+          <motion.div custom={1.8} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+            <p className="section-label">Notificaciones</p>
+            <div className="space-y-2">
+              {loadingExtras ? (
+                <div className="h-16 rounded-2xl animate-pulse" style={{ background: 'rgba(0,0,0,0.03)' }} />
+              ) : latestNotifications.length === 0 ? (
+                <div className="text-center py-5 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                  <FiBell size={18} className="mx-auto mb-2" style={{ color: '#C4AFA2' }} />
+                  <p className="text-[12px] text-charcoal/35">Aún no hay novedades.</p>
+                </div>
+              ) : (
+                latestNotifications.map((n) => (
+                  <div key={n.id} className="flex items-start gap-2.5 p-3 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center mt-0.5" style={{ background: 'rgba(193,156,128,0.12)' }}>
+                      <FiBell size={13} style={{ color: '#C19C80' }} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-charcoal">{n.title}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#C4AFA2' }}>
+                        {classTypeLabels[n.classType]} · {n.date} · {n.time === '07:00' ? '7:00 AM' : '6:00 PM'}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Historial (overview) ── */}
+        {profileTab === 'overview' && pastBookings.length > 0 && (
           <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
             <button onClick={() => setShowAllBookings(!showAllBookings)}
               className="section-label flex items-center gap-1 cursor-pointer">
@@ -257,6 +434,98 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* ── Dedicated history tab ── */}
+        {profileTab === 'history' && (
+          <motion.div custom={1} variants={fadeUp} initial="hidden" animate="show" className="mb-6">
+            <p className="section-label">Todas tus clases</p>
+
+            <div className="flex gap-2 mb-3">
+              {[
+                { id: 'all', label: `Todas (${myBookings.length})` },
+                { id: 'upcoming', label: `Por hacer (${upcomingBookings.length})` },
+                { id: 'done', label: `Hechas (${totalClasses})` },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setHistoryFilter(item.id)}
+                  className="px-3 py-2 rounded-xl text-[11px] font-semibold"
+                  style={{
+                    background: historyFilter === item.id ? '#1A1A1A' : 'rgba(0,0,0,0.04)',
+                    color: historyFilter === item.id ? '#fff' : '#666',
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+
+            {historyBookings.length === 0 ? (
+              <div className="text-center py-8 rounded-2xl" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                <FiCalendar size={24} className="mx-auto mb-3" style={{ color: '#C4AFA2' }} />
+                <p className="text-[13px] font-medium text-charcoal/30">Sin clases en este filtro</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {historyBookings.map((b) => {
+                  const s = statusConfig[b.status]
+                  const dateStr = new Date(b.date + 'T12:00:00').toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short' })
+                  const timeStr = b.time === '07:00' ? '7:00 AM' : '6:00 PM'
+                  const canShowPass = b.status === 'approved' || b.status === 'completed'
+
+                  return (
+                    <div key={b.id} className="flex items-center gap-3 p-4 rounded-2xl bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
+                        <span className="text-base">{s.icon}</span>
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="font-semibold text-[13px] text-charcoal">{classTypeLabels[b.classType]}</p>
+                          <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full" style={{ color: s.color, background: s.bg }}>
+                            {s.label}
+                          </span>
+                        </div>
+                        <p className="text-[11px]" style={{ color: '#C4AFA2' }}>{dateStr} · {timeStr}</p>
+                      </div>
+
+                      {canShowPass && (
+                        <button
+                          onClick={() => setPassBooking(b)}
+                          className="px-2.5 py-1.5 rounded-lg flex items-center gap-1 tap flex-shrink-0"
+                          style={{ background: 'rgba(143,166,133,0.1)' }}
+                        >
+                          <FiSmartphone size={11} style={{ color: '#8FA685' }} />
+                          <span className="text-[9px] font-bold" style={{ color: '#8FA685' }}>PASE</span>
+                        </button>
+                      )}
+
+                      {(b.status === 'pending' || b.status === 'approved') && (
+                        <button
+                          onClick={() => startReschedule(b)}
+                          className="px-2.5 py-1.5 rounded-lg flex items-center gap-1 tap flex-shrink-0"
+                          style={{ background: 'rgba(193,156,128,0.12)' }}
+                        >
+                          <FiRefreshCw size={11} style={{ color: '#C19C80' }} />
+                          <span className="text-[9px] font-bold" style={{ color: '#C19C80' }}>MOVER</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => onNavigate?.('book')}
+                        className="px-2.5 py-1.5 rounded-lg flex items-center gap-1 tap flex-shrink-0"
+                        style={{ background: 'rgba(26,26,26,0.08)' }}
+                      >
+                        <FiCalendar size={11} style={{ color: '#1A1A1A' }} />
+                        <span className="text-[9px] font-bold" style={{ color: '#1A1A1A' }}>REPETIR</span>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -488,6 +757,58 @@ export default function ProfileScreen({ user, onLogout, onNavigate, onUserUpdate
       </AnimatePresence>
 
       {/* ── Cancel confirmation sheet ── */}
+      <AnimatePresence>
+        {reschedulingBooking && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.35)' }}
+              onClick={() => setReschedulingBooking(null)} />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
+              style={{ background: '#FAF8F5' }}>
+              <div className="w-10 h-1 rounded-full mx-auto mb-5" style={{ background: 'rgba(0,0,0,0.08)' }} />
+              <h3 className="font-display text-[18px] font-semibold text-charcoal mb-1 text-center">Reagendar clase</h3>
+              <p className="text-[12px] text-center mb-5" style={{ color: '#C4AFA2' }}>
+                Elige nueva fecha y horario para tu reserva.
+              </p>
+
+              <div className="space-y-3 mb-4">
+                <input
+                  type="date"
+                  value={rescheduleForm.date}
+                  onChange={(e) => setRescheduleForm((prev) => ({ ...prev, date: e.target.value }))}
+                  className="w-full bg-white text-charcoal text-[14px] rounded-xl px-3 py-3 outline-none"
+                />
+                <select
+                  value={rescheduleForm.time}
+                  onChange={(e) => setRescheduleForm((prev) => ({ ...prev, time: e.target.value }))}
+                  className="w-full bg-white text-charcoal text-[14px] rounded-xl px-3 py-3 outline-none"
+                >
+                  <option value="07:00">7:00 AM</option>
+                  <option value="18:00">6:00 PM</option>
+                </select>
+                {rescheduleError && <p className="text-[11px] text-rose">{rescheduleError}</p>}
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setReschedulingBooking(null)}
+                  className="flex-1 py-3.5 rounded-2xl text-[13px] font-semibold text-charcoal active:scale-[0.97] transition-transform"
+                  style={{ background: 'rgba(0,0,0,0.04)' }}>
+                  Volver
+                </button>
+                <button onClick={submitReschedule} disabled={rescheduleSaving}
+                  className="flex-1 py-3.5 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60"
+                  style={{ background: '#C19C80' }}>
+                  {rescheduleSaving ? 'Guardando...' : 'Confirmar'}
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {cancelingId && (
           <>
