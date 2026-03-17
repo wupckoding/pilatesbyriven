@@ -521,88 +521,106 @@ export default function BookScreen({ user }) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl px-6 pt-5 pb-8"
-              style={{ background: '#FAF8F5' }}
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl flex flex-col"
+              style={{ background: '#FAF8F5', maxHeight: '88vh' }}
             >
-              <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(0,0,0,0.08)' }} />
+              {/* Handle */}
+              <div className="w-10 h-1 rounded-full mx-auto mt-4 mb-3 flex-shrink-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
 
               {booked || waitlistDone ? (
-                <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-4">
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="text-center px-6 py-4 flex-1"
+                  style={{ paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+                >
                   <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: 'rgba(143,166,133,0.1)' }}>
                     <FiCheck size={24} style={{ color: '#8FA685' }} />
                   </div>
                   <h3 className="font-display text-[18px] font-semibold text-charcoal mb-1">{booked ? '¡Reserva creada!' : 'Lista de espera confirmada'}</h3>
-                  <p className="text-[12px] mb-1" style={{ color: '#C4AFA2' }}>{booked ? 'Pendiente de confirmación.' : 'Te avisaremos cuando se libere un cupo.'}</p>
+                  <p className="text-[12px] mb-4" style={{ color: '#C4AFA2' }}>{booked ? 'Pendiente de confirmación.' : 'Te avisaremos cuando se libere un cupo.'}</p>
                   <button onClick={closeSheet} className="w-full py-3.5 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform" style={{ background: '#1A1A1A' }}>
                     Entendido
                   </button>
                 </motion.div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h3 className="font-display text-[18px] font-semibold text-charcoal">Confirmar Reserva</h3>
-                      <p className="text-[12px] mt-0.5" style={{ color: '#C4AFA2' }}>
-                        {selectedSlot.fullLabel} · {schedule.formatTimeLabel(selectedSlot.time)}
-                      </p>
+                  {/* Scrollable content area */}
+                  <div className="overflow-y-auto flex-1 px-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-display text-[18px] font-semibold text-charcoal">Confirmar Reserva</h3>
+                        <p className="text-[12px] mt-0.5" style={{ color: '#C4AFA2' }}>
+                          {selectedSlot.fullLabel} · {schedule.formatTimeLabel(selectedSlot.time)}
+                        </p>
+                      </div>
+                      <button onClick={closeSheet} className="w-8 h-8 rounded-xl flex items-center justify-center tap" style={{ background: 'rgba(0,0,0,0.04)' }}>
+                        <FiX size={16} style={{ color: 'rgba(26,26,26,0.3)' }} />
+                      </button>
                     </div>
-                    <button onClick={closeSheet} className="w-8 h-8 rounded-xl flex items-center justify-center tap" style={{ background: 'rgba(0,0,0,0.04)' }}>
-                      <FiX size={16} style={{ color: 'rgba(26,26,26,0.3)' }} />
-                    </button>
-                  </div>
 
-                  <div className="rounded-2xl p-4 mb-4" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
-                    <div className="flex justify-between text-[12px] mb-2">
-                      <span style={{ color: '#C4AFA2' }}>Clase</span>
-                      <span className="font-semibold text-charcoal">{selectedType.label}</span>
-                    </div>
-                    <div className="flex justify-between text-[12px] mb-2">
-                      <span style={{ color: '#C4AFA2' }}>Equipo</span>
-                      <span className="font-semibold text-charcoal">{equipmentOptions.find((item) => item.id === equipment)?.label}</span>
-                    </div>
-                    <div className="flex justify-between text-[12px] mb-2">
-                      <span style={{ color: '#C4AFA2' }}>Precio</span>
-                      <div className="flex items-center gap-2">
-                        {isTrial && <span className="line-through text-[11px]" style={{ color: '#C4AFA2' }}>${selectedSlot.price}</span>}
-                        <span className="font-semibold" style={{ color: isTrial ? '#8FA685' : '#1A1A1A' }}>${actualPrice}</span>
+                    <div className="rounded-2xl p-4 mb-4" style={{ background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <div className="flex justify-between text-[12px] mb-2">
+                        <span style={{ color: '#C4AFA2' }}>Clase</span>
+                        <span className="font-semibold text-charcoal">{selectedType.label}</span>
+                      </div>
+                      <div className="flex justify-between text-[12px] mb-2">
+                        <span style={{ color: '#C4AFA2' }}>Equipo</span>
+                        <span className="font-semibold text-charcoal">{equipmentOptions.find((item) => item.id === equipment)?.label}</span>
+                      </div>
+                      <div className="flex justify-between text-[12px] mb-2">
+                        <span style={{ color: '#C4AFA2' }}>Precio</span>
+                        <div className="flex items-center gap-2">
+                          {isTrial && <span className="line-through text-[11px]" style={{ color: '#C4AFA2' }}>${selectedSlot.price}</span>}
+                          <span className="font-semibold" style={{ color: isTrial ? '#8FA685' : '#1A1A1A' }}>${actualPrice}</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-[12px]">
+                        <span style={{ color: '#C4AFA2' }}>Cupos</span>
+                        <span className="font-semibold" style={{ color: '#8FA685' }}>
+                          {selectedSlot.spots} disponible{selectedSlot.spots > 1 ? 's' : ''}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex justify-between text-[12px]">
-                      <span style={{ color: '#C4AFA2' }}>Cupos</span>
-                      <span className="font-semibold" style={{ color: '#8FA685' }}>
-                        {selectedSlot.spots} disponible{selectedSlot.spots > 1 ? 's' : ''}
-                      </span>
-                    </div>
+
+                    {canUseTrial && !isTrial && (
+                      <button onClick={() => setIsTrial(true)} className="w-full flex items-center gap-3 p-3 rounded-2xl mb-4 tap" style={{ background: 'rgba(143,166,133,0.06)', border: '1px dashed rgba(143,166,133,0.25)' }}>
+                        <FiTag size={14} style={{ color: '#8FA685' }} />
+                        <p className="text-[11px] flex-1 text-left" style={{ color: '#6B7B63' }}>
+                          ¿Primera vez? Aplica tu clase de prueba a <strong>${selectedType.trialPrice}</strong>
+                        </p>
+                      </button>
+                    )}
+
+                    <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} placeholder="Nota opcional (ej: primera vez, lesión...)" className="w-full p-3.5 rounded-2xl text-[12px] resize-none mb-2" style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', outline: 'none' }} />
+
+                    <AnimatePresence>
+                      {error && (
+                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] font-medium text-center mt-1 mb-1" style={{ color: '#C4838E' }}>
+                          {error}
+                        </motion.p>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Spacer so last content isn't hidden behind sticky button */}
+                    <div className="h-4" />
                   </div>
 
-                  {canUseTrial && !isTrial && (
-                    <button onClick={() => setIsTrial(true)} className="w-full flex items-center gap-3 p-3 rounded-2xl mb-4 tap" style={{ background: 'rgba(143,166,133,0.06)', border: '1px dashed rgba(143,166,133,0.25)' }}>
-                      <FiTag size={14} style={{ color: '#8FA685' }} />
-                      <p className="text-[11px] flex-1 text-left" style={{ color: '#6B7B63' }}>
-                        ¿Primera vez? Aplica tu clase de prueba a <strong>${selectedType.trialPrice}</strong>
-                      </p>
-                    </button>
-                  )}
-
-                  <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} placeholder="Nota opcional (ej: primera vez, lesión...)" className="w-full p-3.5 rounded-2xl text-[12px] resize-none mb-4" style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', outline: 'none' }} />
-
-                  <AnimatePresence>
-                    {error && (
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-[11px] font-medium text-center mb-3" style={{ color: '#C4838E' }}>
-                        {error}
-                      </motion.p>
+                  {/* Sticky action button — always visible, respects safe-area */}
+                  <div
+                    className="px-6 pt-3 flex-shrink-0 bg-transparent"
+                    style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+                  >
+                    {selectedSlot.spots <= 0 ? (
+                      <button onClick={handleJoinWaitlist} disabled={joiningWaitlist} className="w-full py-4 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#875D4A', boxShadow: '0 4px 16px rgba(135,93,74,0.3)' }}>
+                        {joiningWaitlist ? <FiLoader size={15} className="animate-spin" /> : 'Entrar en lista de espera'}
+                      </button>
+                    ) : (
+                      <button onClick={handleBook} disabled={booking} className="w-full py-4 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#C19C80', boxShadow: '0 4px 16px rgba(193,156,128,0.3)' }}>
+                        {booking ? <FiLoader size={15} className="animate-spin" /> : <>Confirmar Reserva — ${actualPrice}</>}
+                      </button>
                     )}
-                  </AnimatePresence>
-
-                  {selectedSlot.spots <= 0 ? (
-                    <button onClick={handleJoinWaitlist} disabled={joiningWaitlist} className="w-full py-3.5 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#875D4A', boxShadow: '0 4px 16px rgba(135,93,74,0.3)' }}>
-                      {joiningWaitlist ? <FiLoader size={15} className="animate-spin" /> : 'Entrar en lista de espera'}
-                    </button>
-                  ) : (
-                    <button onClick={handleBook} disabled={booking} className="w-full py-3.5 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#C19C80', boxShadow: '0 4px 16px rgba(193,156,128,0.3)' }}>
-                      {booking ? <FiLoader size={15} className="animate-spin" /> : <>Confirmar Reserva — ${actualPrice}</>}
-                    </button>
-                  )}
+                  </div>
                 </>
               )}
             </motion.div>
