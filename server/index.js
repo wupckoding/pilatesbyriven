@@ -85,6 +85,31 @@ const getBookingPrice = ({ classType, date, time, isTrial }) => {
   return 0
 }
 
+const normalizeCouponCode = (value) => String(value || '').trim().toUpperCase()
+
+const getActiveCouponByCode = (rawCode) => {
+  const code = normalizeCouponCode(rawCode)
+  if (!code) return null
+  const coupon = db.prepare(
+    `SELECT * FROM coupons WHERE code = ? AND isActive = 1 LIMIT 1`
+  ).get(code)
+  if (!coupon) return null
+  return {
+    ...coupon,
+    discountPercent: Number(coupon.discountPercent || 0),
+    isActive: !!coupon.isActive,
+  }
+}
+
+const applyCouponToPrice = (basePrice, coupon) => {
+  const safeBase = Number(basePrice || 0)
+  if (!coupon || safeBase <= 0) return { finalPrice: safeBase, discountAmount: 0, discountPercent: 0 }
+  const percent = Math.max(0, Math.min(100, Number(coupon.discountPercent || 0)))
+  const discountAmount = Math.round((safeBase * (percent / 100)) * 100) / 100
+  const finalPrice = Math.max(0, Math.round((safeBase - discountAmount) * 100) / 100)
+  return { finalPrice, discountAmount, discountPercent: percent }
+}
+
 const promoteWaitlistForSlot = (date, time, classType) => {
   const next = db.prepare(
     `SELECT * FROM waitlist
@@ -456,9 +481,41 @@ app.get('/api/bookings/availability', authMiddleware, (req, res) => {
   res.json({ counts })
 })
 
+app.post('/api/coupons/validate', authMiddleware, (req, res) => {
+  const { code, classType, date, time, isTrial } = req.body || {}
+  const normalizedCode = normalizeCouponCode(code)
+  if (!normalizedCode) return res.status(400).json({ error: 'Código de cupón requerido' })
+
+  const coupon = getActiveCouponByCode(normalizedCode)
+  if (!coupon) return res.status(404).json({ error: 'Cupón inválido o inactivo' })
+
+  if (!classType || !date || !time) {
+    return res.json({
+      coupon: {
+        id: coupon.id,
+        code: coupon.code,
+        discountPercent: coupon.discountPercent,
+      },
+    })
+  }
+
+  const basePrice = getBookingPrice({ classType, date, time, isTrial: !!isTrial })
+  const applied = applyCouponToPrice(basePrice, coupon)
+  res.json({
+    coupon: {
+      id: coupon.id,
+      code: coupon.code,
+      discountPercent: applied.discountPercent,
+      basePrice,
+      discountAmount: applied.discountAmount,
+      finalPrice: applied.finalPrice,
+    },
+  })
+})
+
 app.post('/api/bookings', authMiddleware, (req, res) => {
   try {
-    const { classType, date, time, notes, equipment, isTrial } = req.body
+    const { classType, date, time, notes, equipment, isTrial, couponCode } = req.body
     if (!classType || !date || !time) {
       return res.status(400).json({ error: 'Clase, fecha y hora requeridos' })
     }
@@ -492,14 +549,20 @@ app.post('/api/bookings', authMiddleware, (req, res) => {
     const user = db.prepare('SELECT name, surname, phone, email FROM users WHERE id = ?').get(req.user.id)
     const id = uid()
     const ts = now()
-    const priceAtBooking = getBookingPrice({ classType, date, time, isTrial: !!isTrial })
+    const basePrice = getBookingPrice({ classType, date, time, isTrial: !!isTrial })
+    const coupon = getActiveCouponByCode(couponCode)
+    const appliedCoupon = applyCouponToPrice(basePrice, coupon)
 
     db.prepare(
-      `INSERT INTO bookings (id, userId, userName, userPhone, userEmail, classType, date, time, notes, equipment, isTrial, status, createdAt, updatedAt, priceAtBooking) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)`
+      `INSERT INTO bookings (id, userId, userName, userPhone, userEmail, classType, date, time, notes, equipment, isTrial, status, createdAt, updatedAt, priceAtBooking, couponCode, discountPercent, discountAmount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)`
     ).run(
       id, req.user.id, `${user.name} ${user.surname || ''}`.trim(),
       user.phone || '', user.email || '', classType, date, time,
-      notes || '', equipment || 'reformer', isTrial ? 1 : 0, ts, ts, priceAtBooking
+      notes || '', equipment || 'reformer', isTrial ? 1 : 0, ts, ts,
+      appliedCoupon.finalPrice,
+      coupon ? coupon.code : '',
+      appliedCoupon.discountPercent,
+      appliedCoupon.discountAmount,
     )
 
     const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(id)
@@ -830,6 +893,87 @@ app.get('/api/admin/finance', authMiddleware, adminMiddleware, (req, res) => {
   const toDate = to || today
   const summary = getFinanceSummary(fromDate, toDate)
   res.json({ fromDate, toDate, ...summary })
+})
+
+app.get('/api/admin/coupons', authMiddleware, adminMiddleware, (_req, res) => {
+  const coupons = db.prepare(
+    `SELECT * FROM coupons ORDER BY createdAt DESC`
+  ).all().map((item) => ({
+    ...item,
+    discountPercent: Number(item.discountPercent || 0),
+    isActive: !!item.isActive,
+  }))
+  res.json({ coupons })
+})
+
+app.post('/api/admin/coupons', authMiddleware, adminMiddleware, (req, res) => {
+  const { code, discountPercent, isActive } = req.body || {}
+  const normalizedCode = normalizeCouponCode(code)
+  if (!normalizedCode) return res.status(400).json({ error: 'Código requerido' })
+
+  const safeDiscount = Number(discountPercent)
+  if (!Number.isFinite(safeDiscount) || safeDiscount <= 0 || safeDiscount > 100) {
+    return res.status(400).json({ error: 'discountPercent debe ser mayor que 0 y menor o igual a 100' })
+  }
+
+  const exists = db.prepare('SELECT id FROM coupons WHERE code = ?').get(normalizedCode)
+  if (exists) return res.status(409).json({ error: 'Este código ya existe' })
+
+  const id = uid()
+  const ts = now()
+  db.prepare(
+    `INSERT INTO coupons (id, code, discountPercent, isActive, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(id, normalizedCode, safeDiscount, isActive === false ? 0 : 1, ts, ts)
+
+  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(id)
+  res.json({
+    coupon: {
+      ...coupon,
+      discountPercent: Number(coupon.discountPercent || 0),
+      isActive: !!coupon.isActive,
+    },
+  })
+})
+
+app.put('/api/admin/coupons/:id', authMiddleware, adminMiddleware, (req, res) => {
+  const current = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id)
+  if (!current) return res.status(404).json({ error: 'Cupón no encontrado' })
+
+  const { code, discountPercent, isActive } = req.body || {}
+  const nextCode = code === undefined ? current.code : normalizeCouponCode(code)
+  if (!nextCode) return res.status(400).json({ error: 'Código requerido' })
+
+  if (nextCode !== current.code) {
+    const dup = db.prepare('SELECT id FROM coupons WHERE code = ? AND id != ?').get(nextCode, req.params.id)
+    if (dup) return res.status(409).json({ error: 'Este código ya existe' })
+  }
+
+  const nextDiscount = discountPercent === undefined ? Number(current.discountPercent) : Number(discountPercent)
+  if (!Number.isFinite(nextDiscount) || nextDiscount <= 0 || nextDiscount > 100) {
+    return res.status(400).json({ error: 'discountPercent debe ser mayor que 0 y menor o igual a 100' })
+  }
+
+  db.prepare(
+    `UPDATE coupons
+     SET code = ?, discountPercent = ?, isActive = ?, updatedAt = ?
+     WHERE id = ?`
+  ).run(nextCode, nextDiscount, isActive === undefined ? current.isActive : (isActive ? 1 : 0), now(), req.params.id)
+
+  const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(req.params.id)
+  res.json({
+    coupon: {
+      ...coupon,
+      discountPercent: Number(coupon.discountPercent || 0),
+      isActive: !!coupon.isActive,
+    },
+  })
+})
+
+app.delete('/api/admin/coupons/:id', authMiddleware, adminMiddleware, (req, res) => {
+  const result = db.prepare('DELETE FROM coupons WHERE id = ?').run(req.params.id)
+  if (!result.changes) return res.status(404).json({ error: 'Cupón no encontrado' })
+  res.json({ ok: true })
 })
 
 app.get('/api/admin/settings', authMiddleware, adminMiddleware, (_req, res) => {

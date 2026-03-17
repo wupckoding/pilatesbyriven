@@ -115,10 +115,19 @@ export const bookings = {
   },
 
   /** Create a new booking */
-  async create({ classType, date, time, notes, equipment, isTrial }) {
+  async create({ classType, date, time, notes, equipment, isTrial, couponCode }) {
     try {
-      const { booking } = await api.post('/api/bookings', { classType, date, time, notes, equipment, isTrial })
+      const { booking } = await api.post('/api/bookings', { classType, date, time, notes, equipment, isTrial, couponCode })
       return { booking }
+    } catch (err) {
+      return { error: err.message }
+    }
+  },
+
+  async validateCoupon({ code, classType, date, time, isTrial }) {
+    try {
+      const { coupon } = await api.post('/api/coupons/validate', { code, classType, date, time, isTrial })
+      return { coupon }
     } catch (err) {
       return { error: err.message }
     }
@@ -362,6 +371,42 @@ export const bookings = {
   async runAutomaticReminders() {
     try {
       return await api.post('/api/admin/reminders/run', {})
+    } catch (err) {
+      return { error: err.message }
+    }
+  },
+
+  async getCoupons() {
+    try {
+      const { coupons } = await api.get('/api/admin/coupons')
+      return coupons
+    } catch {
+      return []
+    }
+  },
+
+  async createCoupon(payload) {
+    try {
+      const { coupon } = await api.post('/api/admin/coupons', payload)
+      return { coupon }
+    } catch (err) {
+      return { error: err.message }
+    }
+  },
+
+  async updateCoupon(couponId, payload) {
+    try {
+      const { coupon } = await api.put(`/api/admin/coupons/${couponId}`, payload)
+      return { coupon }
+    } catch (err) {
+      return { error: err.message }
+    }
+  },
+
+  async deleteCoupon(couponId) {
+    try {
+      await api.delete(`/api/admin/coupons/${couponId}`)
+      return { ok: true }
     } catch (err) {
       return { error: err.message }
     }

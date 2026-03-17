@@ -94,6 +94,15 @@ db.exec(`
     updatedAt TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS coupons (
+    id TEXT PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    discountPercent REAL NOT NULL DEFAULT 0,
+    isActive INTEGER NOT NULL DEFAULT 1,
+    createdAt TEXT NOT NULL,
+    updatedAt TEXT NOT NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_bookings_userId ON bookings(userId);
   CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(date);
   CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
@@ -104,6 +113,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_waitlist_slot ON waitlist(date, time, classType, status);
   CREATE INDEX IF NOT EXISTS idx_waitlist_user ON waitlist(userId, status);
   CREATE INDEX IF NOT EXISTS idx_schedule_blocks_date ON schedule_blocks(date, isActive);
+  CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
 `)
 
 const tableHasColumn = (tableName, columnName) => {
@@ -125,6 +135,18 @@ if (!tableHasColumn('bookings', 'reminder2Sent')) {
 
 if (!tableHasColumn('bookings', 'isNoShow')) {
   db.exec('ALTER TABLE bookings ADD COLUMN isNoShow INTEGER DEFAULT 0')
+}
+
+if (!tableHasColumn('bookings', 'couponCode')) {
+  db.exec("ALTER TABLE bookings ADD COLUMN couponCode TEXT DEFAULT ''")
+}
+
+if (!tableHasColumn('bookings', 'discountPercent')) {
+  db.exec('ALTER TABLE bookings ADD COLUMN discountPercent REAL DEFAULT 0')
+}
+
+if (!tableHasColumn('bookings', 'discountAmount')) {
+  db.exec('ALTER TABLE bookings ADD COLUMN discountAmount REAL DEFAULT 0')
 }
 
 if (!tableHasColumn('users', 'objective')) {

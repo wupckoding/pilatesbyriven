@@ -8,6 +8,7 @@ import {
   FiMessageCircle,
   FiPhone,
   FiPlus,
+  FiPercent,
   FiRefreshCw,
   FiSearch,
   FiTrash2,
@@ -58,6 +59,12 @@ const emptyBlockForm = {
   reason: '',
 }
 
+const emptyCouponForm = {
+  code: '',
+  discountPercent: 10,
+  isActive: true,
+}
+
 const currency = (value) => `$${Number(value || 0).toFixed(2)}`
 
 export default function AdminScreen() {
@@ -72,6 +79,8 @@ export default function AdminScreen() {
 
   const [blockForm, setBlockForm] = useState(emptyBlockForm)
   const [savingBlock, setSavingBlock] = useState(false)
+  const [couponForm, setCouponForm] = useState(emptyCouponForm)
+  const [savingCoupon, setSavingCoupon] = useState(false)
   const [financeRange, setFinanceRange] = useState({
     from: new Date(new Date().setDate(new Date().getDate() - 29)).toISOString().split('T')[0],
     to: new Date().toISOString().split('T')[0],
@@ -114,6 +123,7 @@ export default function AdminScreen() {
   const [allBookings, setAllBookings] = useState([])
   const [allUsers, setAllUsers] = useState([])
   const [allSchedules, setAllSchedules] = useState([])
+  const [coupons, setCoupons] = useState([])
   const [blocks, setBlocks] = useState([])
   const [waitlist, setWaitlist] = useState([])
   const [reminders, setReminders] = useState([])
@@ -125,11 +135,12 @@ export default function AdminScreen() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const [statsData, bookingsData, usersData, schedulesData, settingsData, blocksData, waitlistData, remindersData, reminderConfigData] = await Promise.all([
+    const [statsData, bookingsData, usersData, schedulesData, couponsData, settingsData, blocksData, waitlistData, remindersData, reminderConfigData] = await Promise.all([
       bookings.getStats(),
       bookings.getAll(),
       auth.getAllUsers(),
       schedule.getAdminSchedules(),
+      bookings.getCoupons(),
       bookings.getPolicySettings(),
       bookings.getBlockedSlots(true),
       bookings.getWaitlist({ status: 'pending' }),
@@ -141,6 +152,7 @@ export default function AdminScreen() {
     setAllBookings(bookingsData)
     setAllUsers(usersData)
     setAllSchedules(schedulesData)
+    setCoupons(couponsData)
     setSettings(settingsData)
     setBlocks(blocksData)
     setWaitlist(waitlistData)
@@ -201,6 +213,12 @@ export default function AdminScreen() {
       return classTypeLabels[item.classType]?.toLowerCase().includes(query) || dayLabel.toLowerCase().includes(query) || item.time.includes(query)
     })
   }, [allSchedules, searchQuery])
+
+  const filteredCoupons = useMemo(() => {
+    if (!searchQuery.trim()) return coupons
+    const query = searchQuery.toLowerCase()
+    return coupons.filter((item) => item.code?.toLowerCase().includes(query))
+  }, [coupons, searchQuery])
 
   const classHistoryItems = useMemo(() => {
     const sorted = [...allBookings].sort((left, right) => {
@@ -326,6 +344,41 @@ export default function AdminScreen() {
     fetchData()
   }
 
+  const handleCreateCoupon = async (event) => {
+    event.preventDefault()
+    setSavingCoupon(true)
+    const result = await bookings.createCoupon({
+      code: couponForm.code,
+      discountPercent: Number(couponForm.discountPercent),
+      isActive: couponForm.isActive,
+    })
+    setSavingCoupon(false)
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    setCouponForm(emptyCouponForm)
+    fetchData()
+  }
+
+  const handleToggleCoupon = async (coupon) => {
+    const result = await bookings.updateCoupon(coupon.id, { isActive: !coupon.isActive })
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    fetchData()
+  }
+
+  const handleDeleteCoupon = async (couponId) => {
+    const result = await bookings.deleteCoupon(couponId)
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    fetchData()
+  }
+
   const handlePromoteWaitlist = async (waitlistId) => {
     const result = await bookings.promoteWaitlist(waitlistId)
     if (result.error) {
@@ -372,6 +425,7 @@ export default function AdminScreen() {
     { id: 'finance', label: 'Finanzas', badge: null },
     { id: 'bookings', label: 'Reservas', badge: stats.pending || null },
     { id: 'schedules', label: 'Horarios', badge: stats.totalSchedules || null },
+    { id: 'coupons', label: 'Cupones', badge: coupons.filter((item) => item.isActive).length || null },
     { id: 'waitlist', label: 'Espera', badge: stats.waitlistPending || null },
     { id: 'clients', label: 'Clientes', badge: null },
   ]
@@ -881,6 +935,92 @@ export default function AdminScreen() {
                   </div>
                 ))}
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {tab === 'coupons' && (
+          <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show">
+            <form onSubmit={handleCreateCoupon} className="rounded-3xl p-4 mb-4 bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(193,156,128,0.08)' }}>
+                  <FiPercent size={16} style={{ color: '#C19C80' }} />
+                </div>
+                <div>
+                  <p className="font-semibold text-charcoal">Crear cupón</p>
+                  <p className="text-[11px]" style={{ color: '#C4AFA2' }}>Define código e porcentagem de desconto</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <input
+                  value={couponForm.code}
+                  onChange={(event) => setCouponForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
+                  placeholder="CODIGO20"
+                  className="input-field"
+                  required
+                />
+                <div className="relative">
+                  <FiPercent className="absolute left-4 top-1/2 -translate-y-1/2" size={14} style={{ color: '#C4AFA2' }} />
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={couponForm.discountPercent}
+                    onChange={(event) => setCouponForm((current) => ({ ...current, discountPercent: event.target.value }))}
+                    className="w-full py-3 pl-11 pr-4 rounded-xl text-[13px] outline-none"
+                    style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.04)' }}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCouponForm((current) => ({ ...current, isActive: !current.isActive }))}
+                className="w-full py-2.5 rounded-2xl text-[11px] font-semibold tap mb-2"
+                style={{ background: couponForm.isActive ? 'rgba(143,166,133,0.12)' : 'rgba(196,131,142,0.1)', color: couponForm.isActive ? '#5F7756' : '#C4838E' }}
+              >
+                {couponForm.isActive ? 'Cupón activo' : 'Cupón inactivo'}
+              </button>
+
+              <button type="submit" disabled={savingCoupon} className="w-full py-3 rounded-2xl text-[12px] font-semibold text-white tap disabled:opacity-60" style={{ background: '#1A1A1A' }}>
+                {savingCoupon ? 'Guardando...' : 'Guardar cupón'}
+              </button>
+            </form>
+
+            <div className="relative mb-4">
+              <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2" size={15} style={{ color: '#C4AFA2' }} />
+              <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Buscar cupón..." className="w-full py-3 pl-11 pr-4 rounded-xl text-[13px] outline-none" style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.04)', color: '#333' }} />
+            </div>
+
+            <div className="space-y-2">
+              {filteredCoupons.length === 0 ? (
+                <div className="rounded-3xl p-5 bg-white text-center" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <p className="font-semibold text-charcoal">Sem cupons</p>
+                </div>
+              ) : filteredCoupons.map((item) => (
+                <div key={item.id} className="rounded-3xl p-4 bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-[14px] text-charcoal">{item.code}</p>
+                      <p className="text-[11px] mt-1" style={{ color: '#C4AFA2' }}>Desconto: {Number(item.discountPercent || 0)}%</p>
+                    </div>
+                    <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full" style={{ color: item.isActive ? '#8FA685' : '#C4838E', background: item.isActive ? 'rgba(143,166,133,0.1)' : 'rgba(196,131,142,0.1)' }}>
+                      {item.isActive ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <button onClick={() => handleToggleCoupon(item)} className="py-2.5 rounded-2xl text-[11px] font-semibold tap" style={{ background: 'rgba(193,156,128,0.08)', color: '#8B6B53' }}>
+                      {item.isActive ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button onClick={() => handleDeleteCoupon(item.id)} className="py-2.5 rounded-2xl text-[11px] font-semibold flex items-center justify-center gap-1.5 tap" style={{ background: 'rgba(196,131,142,0.1)', color: '#C4838E' }}>
+                      <FiTrash2 size={13} /> Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </motion.div>
         )}

@@ -50,6 +50,9 @@ export default function BookScreen({ user }) {
   const [booking, setBooking] = useState(false)
   const [joiningWaitlist, setJoiningWaitlist] = useState(false)
   const [waitlistDone, setWaitlistDone] = useState(false)
+  const [couponCode, setCouponCode] = useState('')
+  const [couponApplied, setCouponApplied] = useState(null)
+  const [couponLoading, setCouponLoading] = useState(false)
   const [adminSchedules, setAdminSchedules] = useState([])
   const [adminLoading, setAdminLoading] = useState(false)
   const [adminSaving, setAdminSaving] = useState(false)
@@ -111,6 +114,19 @@ export default function BookScreen({ user }) {
     return isTrial ? (selectedType.trialPrice || basePrice) : basePrice
   }, [isTrial, selectedSlot, selectedType])
 
+  const couponPreview = useMemo(() => {
+    if (!couponApplied || !actualPrice) {
+      return { finalPrice: actualPrice, discountAmount: 0, discountPercent: 0 }
+    }
+    const percent = Math.max(0, Math.min(100, Number(couponApplied.discountPercent || 0)))
+    const discountAmount = Math.round((actualPrice * (percent / 100)) * 100) / 100
+    return {
+      discountPercent: percent,
+      discountAmount,
+      finalPrice: Math.max(0, Math.round((actualPrice - discountAmount) * 100) / 100),
+    }
+  }, [actualPrice, couponApplied])
+
   const handleBook = useCallback(async () => {
     if (!selectedSlot || !user || booking) return
     setError('')
@@ -123,6 +139,7 @@ export default function BookScreen({ user }) {
       notes,
       equipment,
       isTrial,
+      couponCode: couponApplied?.code || '',
     })
 
     if (result.error) {
@@ -143,6 +160,30 @@ export default function BookScreen({ user }) {
     setError('')
     setBooked(null)
     setWaitlistDone(false)
+    setCouponCode('')
+    setCouponApplied(null)
+    setCouponLoading(false)
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!selectedSlot || !couponCode.trim() || couponLoading) return
+    setCouponLoading(true)
+    setError('')
+    const result = await bookings.validateCoupon({
+      code: couponCode,
+      classType: selectedType.id,
+      date: selectedSlot.date,
+      time: selectedSlot.time,
+      isTrial,
+    })
+    setCouponLoading(false)
+    if (result.error) {
+      setCouponApplied(null)
+      setError(result.error)
+      return
+    }
+    setCouponApplied(result.coupon)
+    setCouponCode(result.coupon.code)
   }
 
   const handleJoinWaitlist = async () => {
@@ -596,6 +637,36 @@ export default function BookScreen({ user }) {
                       </button>
                     )}
 
+                    <div className="rounded-2xl p-3 mb-4" style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)' }}>
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: '#666' }}>Cupón de descuento</p>
+                      <div className="flex gap-2">
+                        <input
+                          value={couponCode}
+                          onChange={(event) => {
+                            setCouponCode(event.target.value.toUpperCase())
+                            setCouponApplied(null)
+                          }}
+                          placeholder="Ex: BIENVENIDA20"
+                          className="flex-1 px-3 py-2.5 rounded-xl text-[12px] outline-none"
+                          style={{ background: 'rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleApplyCoupon}
+                          disabled={!couponCode.trim() || couponLoading}
+                          className="px-3.5 py-2.5 rounded-xl text-[11px] font-semibold text-white disabled:opacity-60"
+                          style={{ background: '#1A1A1A' }}
+                        >
+                          {couponLoading ? '...' : 'Aplicar'}
+                        </button>
+                      </div>
+                      {couponApplied ? (
+                        <p className="text-[11px] mt-2" style={{ color: '#8FA685' }}>
+                          Cupón {couponApplied.code} aplicado: -{couponPreview.discountPercent}%
+                        </p>
+                      ) : null}
+                    </div>
+
                     <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} placeholder="Nota opcional (ej: primera vez, lesión...)" className="w-full p-3.5 rounded-2xl text-[12px] resize-none mb-2" style={{ background: 'white', border: '1px solid rgba(0,0,0,0.06)', outline: 'none' }} />
 
                     <AnimatePresence>
@@ -624,7 +695,7 @@ export default function BookScreen({ user }) {
                       </button>
                     ) : (
                       <button onClick={handleBook} disabled={booking} className="w-full py-4 rounded-2xl text-[13px] font-semibold text-white active:scale-[0.97] transition-transform disabled:opacity-60 flex items-center justify-center gap-2" style={{ background: '#C19C80', boxShadow: '0 4px 16px rgba(193,156,128,0.3)' }}>
-                        {booking ? <FiLoader size={15} className="animate-spin" /> : <>Confirmar Reserva — ${actualPrice}</>}
+                        {booking ? <FiLoader size={15} className="animate-spin" /> : <>Confirmar Reserva — ${couponPreview.finalPrice}</>}
                       </button>
                     )}
                   </div>
