@@ -521,8 +521,12 @@ export default function BookScreen({ user }) {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl flex flex-col"
-              style={{ background: '#FAF8F5', maxHeight: 'min(82vh, 580px)' }}
+              className="fixed left-0 right-0 z-50 rounded-t-3xl flex flex-col"
+              style={{
+                background: '#FAF8F5',
+                bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))',
+                maxHeight: 'min(78vh, 560px)',
+              }}
             >
               {/* Handle */}
               <div className="w-10 h-1 rounded-full mx-auto mt-4 mb-3 flex-shrink-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
@@ -606,13 +610,12 @@ export default function BookScreen({ user }) {
                     <div className="h-4" />
                   </div>
 
-                  {/* Sticky action button — always visible, respects safe-area */}
+                  {/* Sticky action button — always visible above tab bar */}
                   <div
-                    className="px-6 pt-3 flex-shrink-0"
+                    className="px-6 pt-3 pb-5 flex-shrink-0"
                     style={{
                       background: '#FAF8F5',
                       boxShadow: '0 -12px 20px 4px #FAF8F5',
-                      paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))',
                     }}
                   >
                     {selectedSlot.spots <= 0 ? (
