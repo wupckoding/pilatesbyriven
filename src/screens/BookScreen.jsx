@@ -54,8 +54,10 @@ export default function BookScreen({ user }) {
   const [couponApplied, setCouponApplied] = useState(null)
   const [couponLoading, setCouponLoading] = useState(false)
   const [adminSchedules, setAdminSchedules] = useState([])
+  const [adminCoupons, setAdminCoupons] = useState([])
   const [adminLoading, setAdminLoading] = useState(false)
   const [adminSaving, setAdminSaving] = useState(false)
+  const [adminCouponSaving, setAdminCouponSaving] = useState(false)
   const [adminMode, setAdminMode] = useState('date')
   const [adminForm, setAdminForm] = useState({
     classType: 'semi-grupal',
@@ -64,6 +66,11 @@ export default function BookScreen({ user }) {
     time: '18:00',
     maxSpots: 3,
     price: 25,
+    isActive: true,
+  })
+  const [adminCouponForm, setAdminCouponForm] = useState({
+    code: '',
+    discountPercent: 10,
     isActive: true,
   })
 
@@ -89,16 +96,22 @@ export default function BookScreen({ user }) {
     setAdminLoading(false)
   }, [])
 
+  const loadAdminCoupons = useCallback(async () => {
+    const list = await bookings.getCoupons()
+    setAdminCoupons(list)
+  }, [])
+
   useEffect(() => {
     if (!user?.id) return
     if (isAdmin) {
       loadAdminSchedules()
+      loadAdminCoupons()
       setLoading(false)
       return
     }
     bookings.hasUsedTrial().then(setHasUsedTrial)
     loadSchedules()
-  }, [isAdmin, loadAdminSchedules, loadSchedules, user])
+  }, [isAdmin, loadAdminCoupons, loadAdminSchedules, loadSchedules, user])
 
   const upcomingDays = useMemo(() => {
     return dates
@@ -247,6 +260,41 @@ export default function BookScreen({ user }) {
     loadAdminSchedules()
   }
 
+  const handleAdminCreateCoupon = async (event) => {
+    event.preventDefault()
+    setAdminCouponSaving(true)
+    const result = await bookings.createCoupon({
+      code: adminCouponForm.code,
+      discountPercent: Number(adminCouponForm.discountPercent),
+      isActive: adminCouponForm.isActive,
+    })
+    setAdminCouponSaving(false)
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    setAdminCouponForm({ code: '', discountPercent: 10, isActive: true })
+    loadAdminCoupons()
+  }
+
+  const handleAdminToggleCoupon = async (coupon) => {
+    const result = await bookings.updateCoupon(coupon.id, { isActive: !coupon.isActive })
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    loadAdminCoupons()
+  }
+
+  const handleAdminDeleteCoupon = async (couponId) => {
+    const result = await bookings.deleteCoupon(couponId)
+    if (result.error) {
+      window.alert(result.error)
+      return
+    }
+    loadAdminCoupons()
+  }
+
   if (isAdmin) {
     return (
       <div className="screen-scroll">
@@ -324,6 +372,71 @@ export default function BookScreen({ user }) {
             <button type="submit" disabled={adminSaving} className="w-full py-3.5 rounded-2xl text-[13px] font-semibold text-white tap disabled:opacity-60" style={{ background: '#1A1A1A' }}>
               {adminSaving ? 'Guardando...' : 'Guardar horario'}
             </button>
+          </motion.form>
+
+          <motion.form custom={1.5} variants={fadeUp} initial="hidden" animate="show" onSubmit={handleAdminCreateCoupon} className="rounded-3xl p-5 mb-5 bg-white" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(143,166,133,0.12)' }}>
+                <FiTag size={16} style={{ color: '#5F7756' }} />
+              </div>
+              <div>
+                <p className="font-semibold text-charcoal">Cupones de descuento</p>
+                <p className="text-[11px]" style={{ color: '#C4AFA2' }}>Crea cupón y porcentaje directo aquí</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <input
+                value={adminCouponForm.code}
+                onChange={(event) => setAdminCouponForm((current) => ({ ...current, code: event.target.value.toUpperCase() }))}
+                placeholder="CODIGO20"
+                className="input-field"
+                required
+              />
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={adminCouponForm.discountPercent}
+                onChange={(event) => setAdminCouponForm((current) => ({ ...current, discountPercent: event.target.value }))}
+                className="input-field"
+                required
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setAdminCouponForm((current) => ({ ...current, isActive: !current.isActive }))}
+              className="w-full py-2.5 rounded-2xl text-[11px] font-semibold tap mb-3"
+              style={{ background: adminCouponForm.isActive ? 'rgba(143,166,133,0.12)' : 'rgba(196,131,142,0.1)', color: adminCouponForm.isActive ? '#5F7756' : '#C4838E' }}
+            >
+              {adminCouponForm.isActive ? 'Cupón activo' : 'Cupón inactivo'}
+            </button>
+
+            <button type="submit" disabled={adminCouponSaving} className="w-full py-3.5 rounded-2xl text-[13px] font-semibold text-white tap disabled:opacity-60" style={{ background: '#1A1A1A' }}>
+              {adminCouponSaving ? 'Guardando...' : 'Guardar cupón'}
+            </button>
+
+            <div className="space-y-2 mt-4">
+              {adminCoupons.slice(0, 6).map((coupon) => (
+                <div key={coupon.id} className="rounded-2xl p-3" style={{ background: 'rgba(0,0,0,0.02)' }}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[12px] font-semibold text-charcoal">{coupon.code} · {Number(coupon.discountPercent || 0)}%</p>
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-full" style={{ color: coupon.isActive ? '#8FA685' : '#C4838E', background: coupon.isActive ? 'rgba(143,166,133,0.1)' : 'rgba(196,131,142,0.1)' }}>
+                      {coupon.isActive ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <button type="button" onClick={() => handleAdminToggleCoupon(coupon)} className="py-2 rounded-xl text-[11px] font-semibold tap" style={{ background: 'rgba(193,156,128,0.08)', color: '#8B6B53' }}>
+                      {coupon.isActive ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button type="button" onClick={() => handleAdminDeleteCoupon(coupon.id)} className="py-2 rounded-xl text-[11px] font-semibold tap" style={{ background: 'rgba(196,131,142,0.1)', color: '#C4838E' }}>
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
           </motion.form>
 
           <motion.div custom={2} variants={fadeUp} initial="hidden" animate="show" className="space-y-2">
