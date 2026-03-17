@@ -12,7 +12,7 @@ export default defineConfig({
         name: 'Pilates by Riven',
         short_name: 'Pilates Riven',
         description: 'Studio de Pilates — Agenda tus clases y transforma tu cuerpo',
-        version: '1.3.6',
+        version: '1.3.7',
         theme_color: '#FAF8F5',
         background_color: '#FAF8F5',
         display: 'standalone',
