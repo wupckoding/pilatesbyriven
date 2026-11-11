@@ -177,6 +177,9 @@ export function staffUpdateBooking({ bookingId, actor, status, attendance, reaso
     const holdsNow = ['pending', 'confirmed'].includes(booking.status)
     const willHold = ['pending', 'confirmed'].includes(nextStatus)
     if (willHold && !holdsNow) {
+      // Una ficha archivada (cuenta eliminada) no vuelve a ocupar cupos.
+      const owner = await t.one('select archived_at from clients where id = $1', [booking.clientId])
+      if (owner?.archivedAt) throw new HttpError(409, 'La clienta eliminó su cuenta: esta reserva ya no se puede reactivar', 'CLIENT_ARCHIVED')
       if (session.status !== 'scheduled') throw new HttpError(409, 'Esta clase fue cancelada', 'SESSION_CANCELLED')
       if ((await countTaken(t, session.id)) >= session.capacity) {
         throw new HttpError(409, 'No hay cupo disponible en esta clase', 'SESSION_FULL')

@@ -51,6 +51,19 @@ ausência e cancelamento conforme a regra do pacote, e o fechamento de Caja do e
 US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos). A Fase 3 testa o passo de admissão antes de reservar,
 que as respostas clínicas não vazam para ficha, agenda, Caja nem exportações, e o fluxo de ordem com comprovante.
 
+## Simulação de uso
+
+```bash
+cd server
+npm run simulate                      # 1000 usuárias virtuais
+SIM_USERS=200 SIM_SEED=7 npm run simulate
+```
+
+Usa um banco próprio (`pilates_sim`, apagado a cada rodada). Mil clientas virtuais fazem cadastro, admissão, compra,
+comprovante, reservas e cancelamentos ao mesmo tempo, com duplo toque em tudo; três sessões de admin verificam pagamentos,
+confirmam, movem e cancelam em paralelo; parte das usuárias tenta acessar dados alheios e enviar entradas inválidas.
+No fim, 17 regras de negócio são conferidas direto no banco. O último relatório fica em `server/sim/report.md`.
+
 ## Estrutura
 
 ```
@@ -73,6 +86,6 @@ src/
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
 | 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
 | 3 | Formulário de admissão e consentimento (respostas criptografadas, acesso só do admin com registro), compra pela clienta, comprovante SINPE, link de Compra Click por ordem | Feita |
-| 4 | Simulação de usuários, deploy na VPS (Docker, nginx, backup), app iPhone | Pendente |
+| 4 | Simulação de 1000 usuárias (feita); deploy na VPS (Docker, nginx, backup) e app iPhone (pendentes) | Em andamento |
 
 `deploy.sh` e `nginx.conf` são do app antigo (site estático) e serão refeitos na Fase 4.

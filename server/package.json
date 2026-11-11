@@ -12,6 +12,7 @@
     "migrate": "node src/migrate.js",
     "seed": "node src/seed.js",
     "seed:demo": "node src/seed.js --demo",
+    "simulate": "node sim/simulate.js",
     "test": "node --test --test-concurrency=1 test/api.test.js test/commerce.test.js test/intake.test.js"
   },
   "dependencies": {

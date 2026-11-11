@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import { hashPassword } from './lib/password.js'
 import { config } from './config.js'
 import { db, pool, tx } from './db.js'
 import { migrate } from './migrate.js'
@@ -14,7 +14,7 @@ if (config.admin.email && config.admin.password) {
     if (config.admin.password.length < 12) throw new Error('ADMIN_PASSWORD debe tener al menos 12 caracteres')
     await db.run(
       `insert into users (email, password_hash, role, full_name) values ($1,$2,'admin',$3)`,
-      [config.admin.email, await bcrypt.hash(config.admin.password, 11), config.admin.name],
+      [config.admin.email, await hashPassword(config.admin.password), config.admin.name],
     )
     console.log(`admin creado: ${config.admin.email}`)
   }

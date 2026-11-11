@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import bcrypt from 'bcryptjs'
+import { hashPassword, verifyPassword } from '../lib/password.js'
 import { z } from 'zod'
 import { db, tx } from '../db.js'
 import { h, parse, HttpError } from '../lib/http.js'
@@ -9,9 +9,8 @@ import { formatStudentNumber } from '../lib/time.js'
 import { requireAuth, signToken } from '../auth.js'
 
 const router = Router()
-const BCRYPT_ROUNDS = 11
 // Hash de relleno: el login tarda lo mismo exista o no la cuenta.
-const DUMMY_HASH = bcrypt.hashSync('no-existe-esta-cuenta', BCRYPT_ROUNDS)
+const DUMMY_HASH = await hashPassword('no-existe-esta-cuenta')
 
 const password = z.string({ required_error: 'Escribe una contraseña' })
   .min(8, 'La contraseña debe tener al menos 8 caracteres').max(128, 'La contraseña es demasiado larga')
@@ -42,7 +41,7 @@ router.post('/register', h(async (req, res) => {
   const whatsapp = normalizeWhatsapp(body.whatsapp)
   if (!whatsapp) throw new HttpError(400, 'Revisa tu número de WhatsApp (incluye el código de país si no es de Costa Rica)', 'VALIDATION', { field: 'whatsapp' })
 
-  const hash = await bcrypt.hash(body.password, BCRYPT_ROUNDS)
+  const hash = await hashPassword(body.password)
   const user = await tx(async (t) => {
     const exists = await t.one('select 1 as x from users where email = $1', [body.email])
     if (exists) throw new HttpError(409, 'Ya existe una cuenta con este correo', 'EMAIL_TAKEN', { field: 'email' })
@@ -68,8 +67,10 @@ router.post('/login', h(async (req, res) => {
   const user = await db.one(
     `select id, email, role, full_name, token_version, is_active, password_hash from users where email = $1`,
     [body.email])
-  const ok = await bcrypt.compare(body.password, user?.passwordHash || DUMMY_HASH)
+  const { ok, legacy } = await verifyPassword(body.password, user?.passwordHash || DUMMY_HASH)
   if (!user || !ok || !user.isActive) throw new HttpError(401, 'Correo o contraseña incorrectos', 'BAD_CREDENTIALS')
+  // Una cuenta con el formato anterior se actualiza sola al iniciar sesión.
+  if (legacy) await db.run('update users set password_hash = $2 where id = $1', [user.id, await hashPassword(body.password)])
   await db.run('update users set last_login_at = now() where id = $1', [user.id])
   res.json({ token: signToken(user), ...(await sessionPayload(user)) })
 }))
@@ -114,10 +115,10 @@ router.patch('/me', requireAuth, h(async (req, res) => {
 router.post('/change-password', requireAuth, h(async (req, res) => {
   const body = parse(z.object({ currentPassword: z.string().min(1, 'Escribe tu contraseña actual'), newPassword: password }), req.body)
   const row = await db.one('select password_hash from users where id = $1', [req.user.id])
-  if (!(await bcrypt.compare(body.currentPassword, row.passwordHash))) {
+  if (!(await verifyPassword(body.currentPassword, row.passwordHash)).ok) {
     throw new HttpError(401, 'La contraseña actual no es correcta', 'BAD_CREDENTIALS', { field: 'currentPassword' })
   }
-  const hash = await bcrypt.hash(body.newPassword, BCRYPT_ROUNDS)
+  const hash = await hashPassword(body.newPassword)
   // token_version + 1 cierra todas las demás sesiones abiertas.
   const user = await db.one(
     `update users set password_hash = $2, token_version = token_version + 1, updated_at = now()
@@ -131,7 +132,7 @@ router.delete('/me', requireAuth, h(async (req, res) => {
   const body = parse(z.object({ password: z.string().min(1, 'Escribe tu contraseña para confirmar') }), req.body)
   if (req.user.role === 'admin') throw new HttpError(409, 'La cuenta de administración no se elimina desde la app', 'NOT_ALLOWED')
   const row = await db.one('select password_hash from users where id = $1', [req.user.id])
-  if (!(await bcrypt.compare(body.password, row.passwordHash))) {
+  if (!(await verifyPassword(body.password, row.passwordHash)).ok) {
     throw new HttpError(401, 'La contraseña no es correcta', 'BAD_CREDENTIALS', { field: 'password' })
   }
   await tx(async (t) => {

@@ -320,6 +320,11 @@ test('eliminar cuenta: cancela reservas futuras, archiva la ficha y bloquea el a
   assert.equal((await call('POST', '/api/auth/login', { body: { email: a.email, password: 'clave-segura-1' } })).status, 401)
   const detail = await call('GET', `/api/admin/sessions/${session.id}`, { token: adminToken })
   assert.equal(detail.data.session.taken, 0)
+  // Administración no puede reactivar la reserva de una cuenta eliminada (lo encontró la simulación).
+  const cancelled = detail.data.bookings.find((b) => b.status === 'cancelled')
+  const revive = await call('PATCH', `/api/admin/bookings/${cancelled.id}`, { token: adminToken, body: { status: 'confirmed' } })
+  assert.equal(revive.status, 409)
+  assert.equal(revive.data.code, 'CLIENT_ARCHIVED')
   // El correo queda libre para registrarse de nuevo.
   const again = await call('POST', '/api/auth/register', {
     body: { fullName: 'De Vuelta', email: a.email, password: 'clave-segura-1', whatsapp: '88880000', acceptPrivacy: true },
