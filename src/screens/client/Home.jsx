@@ -15,19 +15,19 @@ export default function ClientHome() {
   const rest = data?.upcoming.slice(1, 4) || []
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <header>
+    <div className="mx-auto max-w-2xl space-y-8 lg:mx-0 lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-8 lg:space-y-0">
+      <header className="lg:col-span-2">
         <p className="eyebrow tnum mb-2">{client?.studentCode}</p>
         <h1 className="display text-[38px] text-ink sm:text-[46px]">
           {greeting()}, <em className="text-clay-deep">{firstName(user.fullName)}</em>
         </h1>
       </header>
 
-      {isLoading && <Skeleton className="h-56" />}
-      {isError && <ErrorState error={error} onRetry={refetch} />}
+      {isLoading && <Skeleton className="h-56 lg:row-span-2 lg:h-[400px]" />}
+      {isError && <div className="lg:row-span-2"><ErrorState error={error} onRetry={refetch} /></div>}
 
       {data && (
-        <section className="grain overflow-hidden rounded-4xl bg-espresso p-6 text-white shadow-lift sm:p-8">
+        <section className="grain overflow-hidden rounded-4xl bg-espresso p-6 text-white shadow-lift sm:p-8 lg:row-span-2 lg:flex lg:min-h-[400px] lg:flex-col lg:justify-end lg:self-start lg:p-12">
           {next ? (
             <>
               <div className="flex items-center justify-between gap-3">
@@ -52,7 +52,7 @@ export default function ClientHome() {
               <p className="mt-4 max-w-sm text-[15px] leading-relaxed text-white/70">
                 Elige el día y el horario que mejor te quede. Grupos pequeños y atención personalizada.
               </p>
-              <Button to="/reservar" variant="secondary" size="lg" icon={CalendarPlus} className="mt-6 !border-transparent">Ver horarios</Button>
+              <Button to="/reservar" variant="secondary" size="lg" icon={CalendarPlus} className="mt-6 self-start !border-transparent">Ver horarios</Button>
             </>
           )}
         </section>

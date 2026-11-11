@@ -9,6 +9,9 @@ import ClientForm from './ClientForm'
 
 const FILTERS = [{ value: 'all', label: 'Todas' }, ...Object.entries(CLIENT_STATUS).map(([value, s]) => ({ value, label: s.label }))]
 
+// Columnas de la tabla en computador (clase completa para que Tailwind la detecte).
+const COLUMNS = 'lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.6fr)_minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.2fr)_96px] lg:items-center lg:gap-4'
+
 const useDebounced = (value, delay = 250) => {
   const [debounced, setDebounced] = useState(value)
   useEffect(() => {
@@ -76,31 +79,49 @@ export default function Clients() {
       {clients.length > 0 && (
         <>
           <p className="tnum text-[13px] text-ink-3">{clients.length} {clients.length === 1 ? 'clienta' : 'clientas'}</p>
-          <Card className="divide-y divide-line overflow-hidden">
-            {clients.map((c) => {
-              const s = CLIENT_STATUS[c.status]
-              return (
-                <div key={c.id} className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-clay-soft/30 sm:px-5">
-                  <Link to={`/clientas/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <Avatar name={c.fullName} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <p className="truncate text-[15px] font-semibold text-ink">{c.fullName}</p>
-                        <Badge tone={s.tone}>{s.label}</Badge>
-                        {c.intakeStatus !== 'completed' && <Badge tone={INTAKE[c.intakeStatus].tone} className="hidden sm:inline-flex">{INTAKE[c.intakeStatus].label}</Badge>}
+          {/* Celular: lista compacta. Computador: tabla con columnas. */}
+          <Card className="overflow-hidden">
+            <div className={`hidden border-b border-line bg-sunken/50 px-5 py-3 lg:grid ${COLUMNS}`} aria-hidden="true">
+              {['Clienta', 'Estado', 'WhatsApp', 'Grupo habitual', 'Próxima clase', ''].map((h) => <p key={h} className="eyebrow">{h}</p>)}
+            </div>
+            <div className="divide-y divide-line">
+              {clients.map((c) => {
+                const s = CLIENT_STATUS[c.status]
+                const intake = c.intakeStatus !== 'completed' ? INTAKE[c.intakeStatus] : null
+                return (
+                  <div key={c.id} className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-clay-soft/30 sm:px-5 lg:grid ${COLUMNS}`}>
+                    <Link to={`/clientas/${c.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      <Avatar name={c.fullName} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="truncate text-[15px] font-semibold text-ink">{c.fullName}</p>
+                          <Badge tone={s.tone} className="lg:hidden">{s.label}</Badge>
+                          {intake && <Badge tone={intake.tone} className="hidden sm:inline-flex lg:hidden">{intake.label}</Badge>}
+                        </div>
+                        <p className="tnum mt-0.5 truncate text-[13px] text-ink-3">
+                          {c.studentCode}
+                          <span className="lg:hidden">
+                            {c.whatsapp && ` · ${fmtPhone(c.whatsapp)}`}
+                            {c.nextClassAt && ` · Próxima: ${fmtDateTime(c.nextClassAt)}`}
+                          </span>
+                        </p>
                       </div>
-                      <p className="tnum mt-0.5 truncate text-[13px] text-ink-3">
-                        {c.studentCode}
-                        {c.whatsapp && ` · ${fmtPhone(c.whatsapp)}`}
-                        {c.nextClassAt && ` · Próxima: ${fmtDateTime(c.nextClassAt)}`}
-                      </p>
+                    </Link>
+                    <div className="hidden flex-wrap gap-1.5 lg:flex">
+                      <Badge tone={s.tone}>{s.label}</Badge>
+                      {intake && <Badge tone={intake.tone}>{intake.label}</Badge>}
                     </div>
-                  </Link>
-                  {c.whatsapp && <IconButton icon={MessageCircle} label={`WhatsApp de ${c.fullName}`} href={waLink(c.whatsapp)} className="bg-sage-soft !text-sage" />}
-                  <ChevronRight className="hidden h-4 w-4 shrink-0 text-ink-3 sm:block" aria-hidden="true" />
-                </div>
-              )
-            })}
+                    <p className="tnum hidden truncate text-sm text-ink-2 lg:block">{fmtPhone(c.whatsapp) || <span className="text-ink-3">—</span>}</p>
+                    <p className="hidden truncate text-sm text-ink-2 lg:block">{c.groupName || <span className="text-ink-3">—</span>}</p>
+                    <p className="tnum hidden truncate text-sm text-ink-2 lg:block">{c.nextClassAt ? fmtDateTime(c.nextClassAt) : <span className="text-ink-3">Sin agendar</span>}</p>
+                    <div className="flex items-center justify-end gap-1">
+                      {c.whatsapp && <IconButton icon={MessageCircle} label={`WhatsApp de ${c.fullName}`} href={waLink(c.whatsapp)} className="bg-sage-soft !text-sage" />}
+                      <IconButton icon={ChevronRight} label={`Abrir ficha de ${c.fullName}`} to={`/clientas/${c.id}`} className="hidden sm:inline-flex" />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </Card>
         </>
       )}

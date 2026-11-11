@@ -47,7 +47,7 @@ export default function MyClasses() {
   const isLate = cancelling && cancelling.status === 'confirmed' && hoursLeft < (data?.cancelWindowHours ?? 0)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 lg:mx-0 lg:max-w-none">
       <PageHeader eyebrow="Mis clases" title="Tu agenda" />
       <Segmented
         label="Clases"
@@ -63,7 +63,7 @@ export default function MyClasses() {
         data.upcoming.length === 0
           ? <EmptyState icon={CalendarHeart} title="No tienes clases agendadas" text="Reserva tu próxima clase en un par de toques." action={<Button to="/reservar">Ver horarios</Button>} />
           : (
-            <div className="space-y-3">
+            <div className="grid gap-x-4 gap-y-3 lg:grid-cols-2">
               {data.upcoming.map((b) => (
                 <div key={b.id}>
                   <BookingCard
@@ -80,7 +80,7 @@ export default function MyClasses() {
       {data && tab === 'past' && (
         data.past.length === 0
           ? <EmptyState icon={History} title="Aún no hay historial" text="Aquí verás tus clases anteriores y tu asistencia." />
-          : <Card className="divide-y divide-line overflow-hidden">{data.past.map((b) => <PastRow key={b.id} booking={b} />)}</Card>
+          : <Card className="max-w-3xl divide-y divide-line overflow-hidden">{data.past.map((b) => <PastRow key={b.id} booking={b} />)}</Card>
       )}
 
       <Sheet

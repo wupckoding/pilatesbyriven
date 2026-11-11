@@ -82,11 +82,11 @@ export default function Book() {
   const pickedFull = picked?.spotsLeft === 0
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 lg:mx-0 lg:max-w-none">
       <PageHeader eyebrow="Reservar" title="Elige tu clase" subtitle="Horarios en hora de Costa Rica." />
 
       {/* Tira de días */}
-      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0" role="tablist" aria-label="Día">
+      <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:px-0 lg:flex-wrap lg:overflow-visible" role="tablist" aria-label="Día">
         {days.map((d) => {
           const active = d === day
           const count = byDay[d]?.length || 0
@@ -126,7 +126,7 @@ export default function Book() {
           action={firstWithClasses && <Button variant="secondary" onClick={() => setDay(firstWithClasses)}>Ir a esa fecha</Button>}
         />
       )}
-      <div className="space-y-3">
+      <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
         {list.map((s) => <SessionRow key={s.id} session={s} onPick={() => setPicked(s)} />)}
       </div>
 

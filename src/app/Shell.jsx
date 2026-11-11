@@ -92,7 +92,7 @@ export default function Shell({ children }) {
         </header>
 
         <main ref={mainRef} className="scroll-area flex-1">
-          <div className="mx-auto w-full max-w-6xl px-5 pb-10 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-12">
+          <div className="mx-auto w-full max-w-[1320px] px-5 pb-10 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-12">
             {children}
           </div>
         </main>

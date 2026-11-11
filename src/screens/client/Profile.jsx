@@ -45,8 +45,8 @@ export default function Profile() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <header className="flex items-center gap-4">
+    <div className="mx-auto max-w-2xl space-y-8 lg:mx-0 lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-x-10 lg:gap-y-8 lg:space-y-0">
+      <header className="flex items-center gap-4 lg:col-span-2">
         <Avatar name={user.fullName} size="lg" />
         <div className="min-w-0">
           <p className="eyebrow tnum mb-1">ID de alumna · {client?.studentCode}</p>

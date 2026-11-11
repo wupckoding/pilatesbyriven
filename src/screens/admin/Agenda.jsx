@@ -144,8 +144,9 @@ function SessionChip({ session, onOpen }) {
         cancelled ? 'border-dashed border-line opacity-60' : full ? 'border-clay/60' : 'border-line',
       )}
     >
-      <p className="tnum text-[13px] font-bold text-ink">{fmtTime(session.localTime)}</p>
-      <p className={cx('mt-0.5 truncate text-[13px] text-ink-2', cancelled && 'line-through')}>{session.name}</p>
+      <p className="truncate text-[10px] font-bold uppercase tracking-label text-clay-deep">{MODALITY[session.modality]}</p>
+      <p className="tnum mt-0.5 whitespace-nowrap text-sm font-bold text-ink">{fmtTime(session.localTime)}</p>
+      <p className={cx('mt-0.5 truncate text-[13px] text-ink-2', cancelled && 'line-through')} title={session.name}>{session.name}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {cancelled ? <Badge tone="terracotta">Cancelada</Badge> : <Occupancy taken={session.taken} capacity={session.capacity} />}
         {session.waitlisted > 0 && <Badge tone="clay">+{session.waitlisted} en espera</Badge>}
@@ -170,6 +171,14 @@ function WeekView({ onOpen }) {
     for (const s of data?.sessions || []) map[s.localDate]?.push(s)
     return map
   }, [data, days])
+  const summary = useMemo(() => {
+    const active = (data?.sessions || []).filter((s) => s.status === 'scheduled')
+    return {
+      sessions: active.length,
+      capacity: active.reduce((sum, s) => sum + s.capacity, 0),
+      taken: active.reduce((sum, s) => sum + s.taken, 0),
+    }
+  }, [data])
   const sameMonth = from.slice(0, 7) === to.slice(0, 7)
   const range = `${fmtDate(from, sameMonth ? { day: 'numeric' } : { day: 'numeric', month: 'short' })} – ${fmtDate(to, { day: 'numeric', month: 'long' })}`
 
@@ -182,19 +191,35 @@ function WeekView({ onOpen }) {
         </div>
         <p className="display text-2xl text-ink">{capitalize(range)}</p>
         {from !== weekStart(today) && <Button size="sm" variant="secondary" onClick={() => setFrom(weekStart(today))}>Hoy</Button>}
+        {data && (
+          <p className="tnum ml-auto hidden text-sm text-ink-2 sm:block">
+            <strong className="font-semibold text-ink">{summary.sessions}</strong> clases ·{' '}
+            <strong className="font-semibold text-ink">{summary.taken}</strong> de {summary.capacity} cupos ocupados ·{' '}
+            <strong className="font-semibold text-sage">{summary.capacity - summary.taken} libres</strong>
+          </p>
+        )}
       </div>
 
       {isError && <ErrorState error={error} onRetry={refetch} />}
       {isLoading && <SkeletonList count={4} className="h-20" />}
 
       {data && (
-        <div className="grid gap-4 lg:grid-cols-7 lg:gap-2">
+        <div className="grid gap-4 lg:grid-cols-7 lg:gap-2.5">
           {days.map((day) => {
             const list = byDay[day]
             const isToday = day === today
+            const isPast = day < today
             return (
-              <section key={day} className={cx('min-w-0 lg:rounded-3xl lg:p-2', isToday && 'lg:bg-clay-soft/60', list.length === 0 && 'hidden lg:block')}>
-                <header className="mb-2 flex items-baseline gap-2 lg:flex-col lg:items-center lg:gap-0 lg:pb-1 lg:text-center">
+              <section
+                key={day}
+                className={cx(
+                  'min-w-0 lg:min-h-[460px] lg:rounded-3xl lg:border lg:p-2.5',
+                  isToday ? 'lg:border-clay/50 lg:bg-clay-soft/60' : 'lg:border-line/70 lg:bg-surface/50',
+                  isPast && 'lg:opacity-70',
+                  list.length === 0 && 'hidden lg:block',
+                )}
+              >
+                <header className="mb-2 flex items-baseline gap-2 lg:mb-3 lg:flex-col lg:items-center lg:gap-0 lg:border-b lg:border-line/70 lg:pb-2.5 lg:text-center">
                   <p className={cx('text-[11px] font-bold uppercase tracking-label', isToday ? 'text-clay-deep' : 'text-ink-3')}>
                     {fmtDate(day, { weekday: 'short' }).replace('.', '')}
                   </p>
@@ -203,7 +228,7 @@ function WeekView({ onOpen }) {
                 </header>
                 <div className="space-y-2">
                   {list.map((s) => <SessionChip key={s.id} session={s} onOpen={() => onOpen(s.id)} />)}
-                  {list.length === 0 && <p className="hidden py-6 text-center text-xs text-ink-3 lg:block">—</p>}
+                  {list.length === 0 && <p className="hidden py-8 text-center text-xs text-ink-3 lg:block">Sin clases</p>}
                 </div>
               </section>
             )
