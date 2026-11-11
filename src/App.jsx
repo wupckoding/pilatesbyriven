@@ -1,157 +1,80 @@
-import React, { useState, useCallback, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { auth } from './utils/data'
-import SplashScreen from './components/SplashScreen'
-import WelcomeScreen from './screens/WelcomeScreen'
-import TabBar from './components/TabBar'
-import InstallPrompt from './components/InstallPrompt'
+import React from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { WifiOff } from 'lucide-react'
+import { useAuth } from './lib/auth'
+import { Button, EmptyState, Logo } from './ui'
+import Shell from './app/Shell'
 import AuthScreen from './screens/AuthScreen'
-import HomeScreen from './screens/HomeScreen'
-import BookScreen from './screens/BookScreen'
-import ProfileScreen from './screens/ProfileScreen'
-import AdminScreen from './screens/AdminScreen'
-import CouponsScreen from './screens/CouponsScreen'
+import AdminHome from './screens/admin/Home'
+import Agenda from './screens/admin/Agenda'
+import Bookings from './screens/admin/Bookings'
+import Clients from './screens/admin/Clients'
+import ClientDetail from './screens/admin/ClientDetail'
+import Settings from './screens/admin/Settings'
+import ComingSoon from './screens/admin/ComingSoon'
+import ClientHome from './screens/client/Home'
+import Book from './screens/client/Book'
+import MyClasses from './screens/client/MyClasses'
+import Profile from './screens/client/Profile'
 
-const screenVariants = {
-  enter: (direction) => ({
-    x: direction > 0 ? '30%' : '-30%',
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction) => ({
-    x: direction > 0 ? '-15%' : '15%',
-    opacity: 0,
-  }),
+function Splash() {
+  return (
+    <div className="flex h-full items-center justify-center bg-canvas">
+      <Logo size="lg" className="animate-pulse" />
+    </div>
+  )
 }
 
-const tabOrder = ['home', 'book', 'coupons', 'profile', 'admin']
-
 export default function App() {
-  const [ready, setReady] = useState(false)
-  const [welcomed, setWelcomed] = useState(() => {
-    try { return localStorage.getItem('pbr_welcomed') === '1' } catch { return false }
-  })
-  const [user, setUser] = useState(null)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [activeTab, setActiveTab] = useState('home')
-  const [direction, setDirection] = useState(0)
+  const { status, user } = useAuth()
 
-  const isAdmin = user?.role === 'admin' || user?.email === 'admin@pilatesbyriven.com'
-  const isReturning = auth.hasSession()
+  if (status === 'loading') return <Splash />
+  if (status === 'offline') {
+    return (
+      <div className="flex h-full items-center justify-center bg-canvas p-6">
+        <EmptyState
+          icon={WifiOff}
+          title="Sin conexión"
+          text="No pudimos conectar con el estudio. Revisa tu internet."
+          action={<Button onClick={() => window.location.reload()}>Reintentar</Button>}
+        />
+      </div>
+    )
+  }
+  if (status === 'guest') return <AuthScreen />
 
-  // Validate JWT token on mount
-  useEffect(() => {
-    if (!auth.hasSession()) {
-      setAuthChecked(true)
-      return
-    }
-    auth.getUser().then(u => {
-      setUser(u)
-      setAuthChecked(true)
-    })
-  }, [])
-
-  const handleWelcome = useCallback(() => {
-    setWelcomed(true)
-    try { localStorage.setItem('pbr_welcomed', '1') } catch {}
-  }, [])
-
-  const handleNavigate = useCallback((tab) => {
-    const from = tabOrder.indexOf(activeTab)
-    const to = tabOrder.indexOf(tab)
-    setDirection(to > from ? 1 : -1)
-    setActiveTab(tab)
-  }, [activeTab])
-
-  const handleLogout = useCallback(() => {
-    auth.logout()
-    setUser(null)
-    setActiveTab('home')
-  }, [])
-
-  const handleUserUpdate = useCallback((updatedUser) => {
-    setUser(updatedUser)
-  }, [])
-
-  const renderScreen = () => {
-    switch (activeTab) {
-      case 'home':    return <HomeScreen user={user} onNavigate={handleNavigate} />
-      case 'book':    return <BookScreen user={user} />
-      case 'coupons': return isAdmin ? <CouponsScreen /> : <HomeScreen user={user} onNavigate={handleNavigate} />
-      case 'profile': return <ProfileScreen user={user} onLogout={handleLogout} onNavigate={handleNavigate} onUserUpdate={handleUserUpdate} />
-      case 'admin':   return isAdmin ? <AdminScreen /> : <HomeScreen user={user} onNavigate={handleNavigate} />
-      default:        return <HomeScreen user={user} onNavigate={handleNavigate} />
-    }
+  if (user.role === 'client') {
+    return (
+      <Shell>
+        <Routes>
+          <Route path="/" element={<ClientHome />} />
+          <Route path="/reservar" element={<Book />} />
+          <Route path="/clases" element={<MyClasses />} />
+          <Route path="/perfil" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Shell>
+    )
   }
 
+  const isAdmin = user.role === 'admin'
   return (
-    <>
-      {/* Splash screen */}
-      <AnimatePresence>
-        {!ready && (
-          <SplashScreen onFinish={() => setReady(true)} isReturning={isReturning} />
+    <Shell>
+      <Routes>
+        <Route path="/" element={<AdminHome />} />
+        <Route path="/agenda" element={<Agenda />} />
+        {isAdmin && (
+          <>
+            <Route path="/reservas" element={<Bookings />} />
+            <Route path="/clientas" element={<Clients />} />
+            <Route path="/clientas/:id" element={<ClientDetail />} />
+            <Route path="/paquetes" element={<ComingSoon kind="paquetes" />} />
+            <Route path="/caja" element={<ComingSoon kind="caja" />} />
+          </>
         )}
-      </AnimatePresence>
-
-      {/* Welcome screen */}
-      <AnimatePresence>
-        {ready && authChecked && !welcomed && !user && (
-          <motion.div
-            key="welcome"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.5 }}
-          >
-            <WelcomeScreen onStart={handleWelcome} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Auth screen */}
-      <AnimatePresence>
-        {ready && authChecked && welcomed && !user && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4 }}
-            className="fixed inset-0 z-50"
-          >
-            <AuthScreen onAuth={(u) => setUser(u)} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Main app */}
-      {ready && authChecked && user && (
-        <div className="app-container safe-top">
-          {/* Screen content */}
-          <AnimatePresence mode="wait" custom={direction}>
-            <motion.div
-              key={activeTab}
-              custom={direction}
-              variants={screenVariants}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
-              className="screen flex flex-col"
-            >
-              {renderScreen()}
-            </motion.div>
-          </AnimatePresence>
-
-          {/* Tab bar */}
-          <TabBar active={activeTab} onChange={handleNavigate} isAdmin={isAdmin} />
-
-          {/* PWA install prompt */}
-          <InstallPrompt />
-        </div>
-      )}
-    </>
+        <Route path="/ajustes" element={<Settings />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Shell>
   )
 }

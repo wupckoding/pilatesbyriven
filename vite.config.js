@@ -7,65 +7,37 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt'],
+      includeAssets: ['favicon.png', 'logo-beige.svg', 'logo-white.svg'],
       manifest: {
         name: 'Pilates by Riven',
-        short_name: 'Pilates Riven',
-        description: 'Studio de Pilates — Agenda tus clases y transforma tu cuerpo',
-        version: '1.3.7',
-        theme_color: '#FAF8F5',
-        background_color: '#FAF8F5',
+        short_name: 'Riven',
+        description: 'Reserva tus clases y gestiona tu práctica en Pilates by Riven',
+        lang: 'es',
+        theme_color: '#F5F0E8',
+        background_color: '#F5F0E8',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         scope: '/',
         icons: [
-          {
-            src: '/icons/icon-192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: '/icons/icon-512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ]
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
       },
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,woff,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 }
-            }
-          }
-        ]
-      }
-    })
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+        // La API nunca se sirve desde caché: cupos y pagos deben ser siempre reales.
+        navigateFallbackDenylist: [/^\/api\//],
+      },
+    }),
   ],
   server: {
     host: true,
-    port: 3000
-  }
+    port: 3000,
+    proxy: { '/api': 'http://127.0.0.1:3001' },
+  },
 })

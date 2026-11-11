@@ -9,18 +9,20 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "archiver": "^7.0.1",
-    "firebase": "^12.10.0",
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@tanstack/react-query": "^5.107.1",
     "framer-motion": "^11.11.0",
-    "qrcode.react": "^4.2.0",
+    "lucide-react": "^1.72.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-icons": "^5.3.0"
+    "react-router-dom": "^6.30.6"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.4.16",
     "vite": "^6.0.3",
     "vite-plugin-pwa": "^0.21.1"

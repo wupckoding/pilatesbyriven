@@ -1,43 +1,36 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
-import { LanguageProvider } from './i18n/LanguageContext'
+import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import '@fontsource-variable/manrope'
+import '@fontsource-variable/fraunces/opsz.css'
+import '@fontsource-variable/fraunces/opsz-italic.css'
 import './index.css'
+import App from './App'
+import { AuthProvider } from './lib/auth'
+import { ToastProvider } from './ui/Toast'
 
-// Força reload automático e verifica atualizações enquanto o app estiver aberto.
-if ('serviceWorker' in navigator) {
-  let hasReloadedForUpdate = false
-
-  const requestServiceWorkerUpdate = async () => {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (registration) {
-        await registration.update()
-      }
-    } catch {}
-  }
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (hasReloadedForUpdate) return
-    hasReloadedForUpdate = true
-    window.location.reload()
-  })
-
-  window.addEventListener('load', requestServiceWorkerUpdate)
-  window.addEventListener('focus', requestServiceWorkerUpdate)
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      requestServiceWorkerUpdate()
-    }
-  })
-
-  window.setInterval(requestServiceWorkerUpdate, 60000)
-}
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 20_000,
+      refetchOnWindowFocus: true,
+      // No se reintenta lo que el servidor rechazó a propósito (permisos, validación).
+      retry: (count, error) => (error?.status === 0 || error?.status >= 500) && count < 2,
+    },
+  },
+})
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <LanguageProvider>
-      <App />
-    </LanguageProvider>
-  </React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ToastProvider>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ToastProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
+  </React.StrictMode>,
 )

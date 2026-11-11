@@ -1,91 +1,67 @@
-<<<<<<< HEAD
-# pilatesbyriven
-=======
-# Pilates by Riven — App PWA
+# Pilates by Riven
 
-App progressivo (PWA) do studio **Pilates by Riven**. Os alunos podem adicionar à tela inicial do celular e usar como um app nativo, sem precisar da App Store.
+App de reservas e painel de administração do estúdio Pilates by Riven (Escazú, Costa Rica).
+A interface é em espanhol; o calendário opera sempre no fuso `America/Costa_Rica`.
 
 ## Stack
 
-- **React 18** + **Vite 6** (build rápido)
-- **Tailwind CSS 3** (estilização)
-- **Framer Motion** (animações)
-- **PWA** com Service Worker (funciona offline)
+- **Front:** React 18, Vite 6, Tailwind 3, React Router, TanStack Query, PWA
+- **API:** Node 20+, Express 4, PostgreSQL 17, zod, JWT
+- **Testes:** `node:test` contra um banco PostgreSQL de teste
 
-## Rodar localmente
+## Rodar local
 
 ```bash
-# Instalar dependências
+# 1. Banco de desenvolvimento (cluster próprio na porta 5433)
+powershell -File scripts/db-start.ps1
+
+# 2. API (porta 3001) — migra o banco ao iniciar
+cd server
 npm install
-
-# Rodar em modo dev
+npm run seed:demo     # admin + catálogo + grupos + clientas fictícias
 npm run dev
-# → acesse http://localhost:3000
 
-# Build de produção
-npm run build
-
-# Preview da build
-npm run preview
+# 3. Front (porta 3000) — /api é redirecionado para a 3001
+npm install
+npm run dev
 ```
 
-## Deploy na VPS
+O login de administração vem de `ADMIN_EMAIL` / `ADMIN_PASSWORD` em `server/.env` (arquivo local, fora do git).
+Modelo de configuração: `server/.env.example`.
+
+## Testes
 
 ```bash
-# 1. Tornar o script executável
-chmod +x deploy.sh
-
-# 2. Rodar o deploy (substitua com seus dados)
-./deploy.sh root@123.456.789.0
+cd server
+npm test
 ```
 
-### Setup manual na VPS (se preferir)
-
-```bash
-# No servidor (Ubuntu/Debian)
-sudo apt update && sudo apt install nginx -y
-
-# Criar pasta do site
-sudo mkdir -p /var/www/pilates-by-riven
-
-# Na sua máquina: build + enviar
-npm run build
-scp -r dist/* root@seu-servidor:/var/www/pilates-by-riven/
-
-# Copiar config nginx
-scp nginx.conf root@seu-servidor:/etc/nginx/sites-available/pilates-by-riven
-ssh root@seu-servidor "ln -sf /etc/nginx/sites-available/pilates-by-riven /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx"
-
-# SSL gratuito com Let's Encrypt
-ssh root@seu-servidor "apt install certbot python3-certbot-nginx -y && certbot --nginx -d seu-dominio.com.br"
-```
+Cobrem: cadastro e ID de alumna, login e sessões, permissões por papel, último cupo com solicitações
+simultâneas, duplo toque, lista de espera, cancelamento tardio, asistencia, duplicados por WhatsApp,
+geração de sessões no fuso da Costa Rica, mudança de série e exclusão de conta.
 
 ## Estrutura
 
 ```
+server/
+  migrations/         SQL versionado (001 núcleo, 002 catálogo/pagamentos)
+  src/routes/         auth, client (clienta), admin (painel)
+  src/services/       reservas (trava de cupo), sessões, ajustes
+  test/               testes de integração
 src/
-├── main.jsx              # Ponto de entrada
-├── App.jsx               # App principal
-├── index.css             # Estilos globais + Tailwind
-└── components/
-    ├── InaugurationBanner.jsx  # Banner de inauguração com countdown
-    ├── Navbar.jsx              # Menu responsivo
-    ├── Hero.jsx                # Tela principal
-    ├── About.jsx               # Sobre o studio + benefícios
-    ├── Classes.jsx             # Modalidades + horários
-    ├── Instructor.jsx          # Perfil da instrutora
-    ├── Gallery.jsx             # Galeria de fotos (placeholders)
-    ├── Pricing.jsx             # Planos e preços
-    ├── Contact.jsx             # Formulário + WhatsApp
-    ├── Footer.jsx              # Rodapé
-    └── InstallPrompt.jsx       # Prompt para instalar PWA
+  ui/                 design system (botões, cartões, folha modal, toasts)
+  app/Shell.jsx       barra lateral (computador) e barra inferior (celular)
+  screens/admin/      Inicio, Agenda, Reservas, Clientas, Ajustes
+  screens/client/     Inicio, Reservar, Mis clases, Perfil
 ```
 
-## Personalizar
+## Estado das fases
 
-- **WhatsApp**: Trocar `5500000000000` pelo número real em `Contact.jsx` e `Footer.jsx`
-- **Instagram**: Trocar `@pilatesbyriven` se for diferente
-- **Fotos**: Substituir placeholders na `Gallery.jsx` por fotos reais do studio
-- **Preços**: Adicionar valores reais em `Pricing.jsx`
-- **Ícones PWA**: Substituir os SVGs em `public/icons/` por PNGs reais (192x192 e 512x512)
->>>>>>> 005e2d6 (Initial commit — Pilates by Riven)
+| Fase | Conteúdo | Estado |
+|---|---|---|
+| 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
+| 2 | Pacotes, renovações, pagamentos, Caja e fundo Lindora, exportação | Pendente (tabelas já criadas) |
+| 3 | Formulário clínico e consentimento, SINPE e Compra Click | Pendente |
+| 4 | Simulação de usuários, deploy na VPS (Docker, nginx, backup), app iPhone | Pendente |
+
+`deploy.sh` e `nginx.conf` são do app antigo (site estático) e serão refeitos na Fase 4.

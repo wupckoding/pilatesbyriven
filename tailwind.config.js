@@ -1,52 +1,35 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-  ],
+  content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       colors: {
-        cream:    '#FAF8F5',
-        blush:    '#E8B4B8',
-        rose:     '#C4838E',
-        sage:     '#8FA685',
-        gold:     '#C4956A',
-        charcoal: '#1A1A1A',
-        warm:     '#F0E6DF',
-        sand:     '#E8DDD4',
-        ivory:    '#FEFCF9',
-        muted:    '#B8A99A',
+        // Superficies
+        canvas: '#F5F0E8',
+        surface: '#FFFDFA',
+        sunken: '#EFE8DD',
+        line: '#E6DCCF',
+        // Tinta
+        ink: { DEFAULT: '#2B221D', 2: '#5C5047', 3: '#776B61' },
+        espresso: '#231B17',
+        // Marca (#C19C80 es el tono del logotipo)
+        clay: { DEFAULT: '#C19C80', deep: '#8A6548', soft: '#EFE2D4' },
+        // Estados
+        sage: { DEFAULT: '#5F7556', soft: '#E3EADD' },
+        honey: { DEFAULT: '#946A1C', soft: '#F6EAD0' },
+        terracotta: { DEFAULT: '#A84E38', soft: '#F6E2DB' },
       },
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
-        body:    ['"Inter"', '-apple-system', 'sans-serif'],
+        display: ['"Fraunces Variable"', 'Georgia', 'serif'],
+        body: ['"Manrope Variable"', 'system-ui', '-apple-system', 'sans-serif'],
       },
-      borderRadius: {
-        '4xl': '2rem',
-      },
+      borderRadius: { '4xl': '2rem' },
       boxShadow: {
-        'card': '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03)',
-        'card-hover': '0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.05)',
-        'elevated': '0 4px 16px rgba(0,0,0,0.08), 0 12px 40px rgba(0,0,0,0.06)',
-        'glow-rose': '0 8px 32px rgba(196,131,142,0.25)',
-        'glow-gold': '0 8px 32px rgba(196,149,106,0.2)',
-        'inner-glow': 'inset 0 1px 0 rgba(255,255,255,0.6)',
+        card: '0 1px 2px rgba(43,34,29,0.04), 0 8px 24px -12px rgba(43,34,29,0.10)',
+        lift: '0 2px 4px rgba(43,34,29,0.05), 0 18px 40px -16px rgba(43,34,29,0.22)',
+        sheet: '0 -8px 40px rgba(43,34,29,0.18)',
       },
-      animation: {
-        'fade-in':    'fadeIn 0.8s ease-out forwards',
-        'slide-up':   'slideUp 0.8s ease-out forwards',
-        'float':      'float 6s ease-in-out infinite',
-        'shimmer':    'shimmer 2s ease-in-out infinite',
-        'pulse-soft': 'pulseSoft 3s ease-in-out infinite',
-      },
-      keyframes: {
-        fadeIn:    { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideUp:   { '0%': { opacity: '0', transform: 'translateY(30px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-        float:     { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-10px)' } },
-        shimmer:   { '0%, 100%': { opacity: '0.5' }, '50%': { opacity: '1' } },
-        pulseSoft: { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.02)' } },
-      },
+      letterSpacing: { label: '0.14em' },
     },
   },
   plugins: [],
