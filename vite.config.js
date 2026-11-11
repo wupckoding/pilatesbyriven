@@ -38,6 +38,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 3000,
-    proxy: { '/api': 'http://127.0.0.1:3001' },
+    // API_PORT permite que las pruebas de interfaz usen su propia API.
+    proxy: { '/api': `http://127.0.0.1:${process.env.API_PORT || 3001}` },
   },
 })

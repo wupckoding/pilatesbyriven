@@ -10,3 +10,5 @@ coverage/
 uploads/
 # material sem relação com o app
 claude-cookbooks-main/
+e2e/report/
+e2e/results/

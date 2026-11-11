@@ -75,7 +75,7 @@ export default function ClientHome() {
 
       {rest.length > 0 && (
         <section>
-          <SectionTitle action={<Link to="/clases" className="inline-flex items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver todas <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+          <SectionTitle action={<Link to="/clases" className="inline-flex min-h-[36px] items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver todas <ArrowRight className="h-3.5 w-3.5" /></Link>}>
             También tienes
           </SectionTitle>
           <div className="space-y-3">{rest.map((b) => <BookingCard key={b.id} booking={b} />)}</div>

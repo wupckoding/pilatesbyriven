@@ -359,7 +359,10 @@ router.get('/clients', admin, h(async (req, res) => {
   if (q.followup) { params.push(todayCR()); conds.push(`c.next_followup_on <= $${params.length}::date`) }
   if (q.status && q.status !== 'all') { params.push(q.status); conds.push(`c.status = $${params.length}`) }
   if (q.search) {
-    const digits = q.search.replace(/\D/g, '')
+    // Solo se busca por teléfono o ID cuando lo escrito es un número ("8888 7777", "+506…", "PR 0012"),
+    // no cuando es un nombre que casualmente contiene dígitos.
+    const numeric = /^\s*(pr)?[\s\d+().-]+$/i.test(q.search)
+    const digits = numeric ? q.search.replace(/\D/g, '') : ''
     params.push(`%${q.search.replace(/[%_\\]/g, '\\$&')}%`)
     const like = `$${params.length}`
     const parts = [`c.full_name ilike ${like}`, `c.email::text ilike ${like}`]

@@ -156,7 +156,7 @@ function PaymentsList({ onOpenPackage }) {
                         ? <Button size="sm" loading={verify.isPending && verify.variables === y.id} onClick={() => verify.mutate(y.id)}>Verificar</Button>
                         : <Badge tone={state.tone}>{state.label}</Badge>}
                       {y.hasProof && <IconButton icon={Paperclip} label="Ver comprobante" onClick={() => api.openFile(`/admin/payments/${y.id}/proof`).catch(toast.error)} />}
-                      {y.packageId && <button type="button" className="text-[13px] font-semibold text-clay-deep lg:hidden" onClick={() => onOpenPackage(y.packageId)}>Ver</button>}
+                      {y.packageId && <button type="button" className="inline-flex min-h-[36px] items-center px-1 text-[13px] font-semibold text-clay-deep lg:hidden" onClick={() => onOpenPackage(y.packageId)}>Ver</button>}
                     </div>
                   </div>
                 )

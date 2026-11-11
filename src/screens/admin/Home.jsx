@@ -48,7 +48,7 @@ function MonthSummary({ month }) {
   const tile = 'block p-5'
   return (
     <section>
-      <SectionTitle action={<Link to="/caja" className="inline-flex items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Abrir Caja <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+      <SectionTitle action={<Link to="/caja" className="inline-flex min-h-[36px] items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Abrir Caja <ArrowRight className="h-3.5 w-3.5" /></Link>}>
         Resumen de {fmtDate(month.from, { month: 'long' })}
       </SectionTitle>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -163,7 +163,7 @@ export default function AdminHome() {
 
       <div className="grid gap-9 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section>
-          <SectionTitle action={<Link to="/agenda" className="inline-flex items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver agenda <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+          <SectionTitle action={<Link to="/agenda" className="inline-flex min-h-[36px] items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver agenda <ArrowRight className="h-3.5 w-3.5" /></Link>}>
             Clases de hoy
           </SectionTitle>
           {isLoading && <SkeletonList count={2} />}
@@ -197,7 +197,7 @@ export default function AdminHome() {
 
           {isAdmin && counts && (
             <section>
-              <SectionTitle action={<Link to="/clientas" className="inline-flex items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver todas <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+              <SectionTitle action={<Link to="/clientas" className="inline-flex min-h-[36px] items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Ver todas <ArrowRight className="h-3.5 w-3.5" /></Link>}>
                 Alumnas
               </SectionTitle>
               <Card className="divide-y divide-line">

@@ -8,9 +8,12 @@ import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { BookingCard, DateBlock, MyPackageCard, STATUS_HELP, useMyBookings, useMyPackages, useRefreshMine } from './shared'
 
+// Las mismas marcas de asistencia, dichas a la clienta.
+const MY_ATTENDANCE = { attended: 'Asististe', absent: 'Ausencia', cancelled_notice: 'Cancelada', cancelled_late: 'Cancelada tarde', made_up: 'Reposición' }
+
 function PastRow({ booking }) {
   const state = booking.attendance
-    ? ATTENDANCE[booking.attendance]
+    ? { ...ATTENDANCE[booking.attendance], label: MY_ATTENDANCE[booking.attendance] }
     : booking.sessionStatus === 'cancelled' ? { label: 'Cancelada por el estudio', tone: 'terracotta' }
       : booking.status === 'cancelled' ? { label: 'Cancelada', tone: 'neutral' }
         : { label: 'Realizada', tone: 'neutral' }

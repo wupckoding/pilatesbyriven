@@ -51,6 +51,18 @@ ausência e cancelamento conforme a regra do pacote, e o fechamento de Caja do e
 US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos). A Fase 3 testa o passo de admissão antes de reservar,
 que as respostas clínicas não vazam para ficha, agenda, Caja nem exportações, e o fluxo de ordem com comprovante.
 
+## Testes de interface
+
+```bash
+npm run test:e2e
+```
+
+Playwright abre o app num navegador real, em computador (1440 px) e em celular (Pixel 7), contra uma API e um banco próprios
+(`pilates_e2e`, recriado a cada rodada; portas 3100 e 3101). São 18 cenários em cada tamanho de tela: cadastro e login,
+admissão em quatro passos, reservar e cancelar, comprar e subir comprovante, agenda, clientas, pacote com pagamento parcial e
+reembolso, Caja, admissão no painel, ajustes e permissões da instrutora. Toda tela é conferida quanto a erro de JavaScript,
+estouro de largura e, no celular, botões pequenos demais para o dedo. O relatório com capturas fica em `e2e/report/`.
+
 ## Simulação de uso
 
 ```bash
@@ -86,6 +98,6 @@ src/
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
 | 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
 | 3 | Formulário de admissão e consentimento (respostas criptografadas, acesso só do admin com registro), compra pela clienta, comprovante SINPE, link de Compra Click por ordem | Feita |
-| 4 | Simulação de 1000 usuárias (feita); deploy na VPS (Docker, nginx, backup) e app iPhone (pendentes) | Em andamento |
+| 4 | Simulação de 1000 usuárias e testes de interface (feitos); deploy na VPS (Docker, nginx, backup) e app iPhone (pendentes) | Em andamento |
 
 `deploy.sh` e `nginx.conf` são do app antigo (site estático) e serão refeitos na Fase 4.
