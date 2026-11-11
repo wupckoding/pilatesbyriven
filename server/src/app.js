@@ -9,6 +9,7 @@ import { HttpError } from './lib/http.js'
 import authRoutes from './routes/auth.js'
 import clientRoutes from './routes/client.js'
 import adminRoutes from './routes/admin.js'
+import commerceRoutes from './routes/commerce.js'
 
 export function createApp() {
   const app = express()
@@ -36,6 +37,7 @@ export function createApp() {
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }))
   app.use('/api/auth', authRoutes)
   app.use('/api/admin', adminRoutes)
+  app.use('/api/admin', commerceRoutes)
   app.use('/api', clientRoutes)
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Ruta no encontrada', 'NOT_FOUND')))
 

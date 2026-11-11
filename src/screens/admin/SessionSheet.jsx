@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Ban, MessageCircle, Plus, RotateCcw, Search, UserPlus } from 'lucide-react'
+import { ArrowRightLeft, Ban, MessageCircle, Plus, RotateCcw, Search, UserPlus } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ATTENDANCE, BOOKING_STATUS, INTAKE, KIND, MODALITY, dayLabel, fmtTime, waLink } from '../../lib/format'
-import { Avatar, Badge, Button, EmptyState, ErrorState, Field, IconButton, Input, Occupancy, SkeletonList, cx } from '../../ui'
+import { ATTENDANCE, BOOKING_STATUS, INTAKE, KIND, MODALITY, addDays, capitalize, dayLabel, fmtDate, fmtTime, todayCR, waLink } from '../../lib/format'
+import { Avatar, Badge, Button, EmptyState, ErrorState, Field, IconButton, Input, Occupancy, Select, SkeletonList, cx } from '../../ui'
 import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 
@@ -20,7 +20,7 @@ const ATTENDANCE_OPTIONS = [
 /** Invalida todo lo que depende de cupos y asistencia. */
 export const useRefreshAgenda = () => {
   const qc = useQueryClient()
-  return () => Promise.all(['dashboard', 'agenda', 'session', 'admin-bookings', 'clients', 'client'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
+  return () => Promise.all(['dashboard', 'agenda', 'session', 'admin-bookings', 'clients', 'client', 'packages', 'package', 'caja'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
 }
 
 function AddClient({ sessionId, full, onDone }) {
@@ -73,8 +73,44 @@ function AddClient({ sessionId, full, onDone }) {
   )
 }
 
-function BookingRow({ booking, started, isAdmin }) {
+/** Reprogramar: libera este cupo, toma el nuevo y conserva el crédito del paquete. */
+function MoveBooking({ booking, sessionId, onClose }) {
   const toast = useToast()
+  const refresh = useRefreshAgenda()
+  const from = todayCR()
+  const to = addDays(from, 42)
+  const [target, setTarget] = useState('')
+  const [reason, setReason] = useState('')
+  const agenda = useQuery({ queryKey: ['agenda', from, to], queryFn: () => api.get('/admin/agenda', { from, to }) })
+  const options = (agenda.data?.sessions || []).filter((s) => s.id !== sessionId && s.status === 'scheduled' && new Date(s.startsAt) > new Date())
+  const move = useMutation({
+    mutationFn: () => api.post(`/admin/bookings/${booking.id}/reschedule`, { sessionId: target, reason: reason.trim() }),
+    onSuccess: async () => { await refresh(); toast.success('Reserva movida'); onClose() },
+    onError: toast.error,
+  })
+  return (
+    <div className="ml-[52px] mt-3 space-y-3 rounded-3xl border border-line bg-surface p-4">
+      <Field label={`Mover a ${booking.fullName.split(' ')[0]} a otra clase`}>
+        <Select value={target} onChange={(e) => setTarget(e.target.value)}>
+          <option value="">{agenda.isLoading ? 'Cargando clases…' : 'Elige la nueva clase'}</option>
+          {options.map((s) => {
+            const full = s.taken >= s.capacity
+            return <option key={s.id} value={s.id} disabled={full}>{capitalize(fmtDate(s.localDate, { weekday: 'short', day: 'numeric', month: 'short' }))} · {fmtTime(s.localTime)} · {full ? 'llena' : `${s.taken} de ${s.capacity}`}</option>
+          })}
+        </Select>
+      </Field>
+      <Field label="Motivo" optional><Input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Viaje, reposición…" /></Field>
+      <div className="flex gap-2">
+        <Button size="sm" disabled={!target} loading={move.isPending} onClick={() => move.mutate()}>Mover reserva</Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>Volver</Button>
+      </div>
+    </div>
+  )
+}
+
+function BookingRow({ booking, started, isAdmin, sessionId }) {
+  const toast = useToast()
+  const [moving, setMoving] = useState(false)
   const refresh = useRefreshAgenda()
   const update = useMutation({
     mutationFn: (patch) => api.patch(`/admin/bookings/${booking.id}`, patch),
@@ -95,8 +131,9 @@ function BookingRow({ booking, started, isAdmin }) {
             ? <Link to={`/clientas/${booking.clientId}`} className="block truncate text-[15px] font-semibold text-ink hover:text-clay-deep">{booking.fullName}</Link>
             : <p className="truncate text-[15px] font-semibold text-ink">{booking.fullName}</p>}
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge tone={attendance ? attendance.tone : status.tone}>{attendance ? attendance.label : status.label}</Badge>
+            <Badge tone={attendance ? attendance.tone : status.tone}>{attendance ? attendance.label : booking.heldForPayment && booking.status === 'pending' ? 'Cupo retenido · pago pendiente' : status.label}</Badge>
             {intakeFlag && <Badge tone={intakeFlag.tone}>{intakeFlag.label}</Badge>}
+            {isAdmin && live && !booking.packageId && <Badge tone="honey">Sin paquete</Badge>}
           </div>
         </div>
         {isAdmin && booking.whatsapp && (
@@ -130,12 +167,16 @@ function BookingRow({ booking, started, isAdmin }) {
             {label}
           </button>
         ))}
+        {isAdmin && live && !booking.attendance && !moving && (
+          <Button size="sm" variant="ghost" icon={ArrowRightLeft} onClick={() => setMoving(true)}>Mover</Button>
+        )}
         {isAdmin && (booking.status === 'waitlisted' || (live && !started)) && (
           <Button size="sm" variant="ghost" disabled={update.isPending} onClick={() => update.mutate({ status: 'cancelled' })}>
             {booking.status === 'waitlisted' ? 'Quitar de la lista' : 'Cancelar reserva'}
           </Button>
         )}
       </div>
+      {moving && <MoveBooking booking={booking} sessionId={sessionId} onClose={() => setMoving(false)} />}
     </li>
   )
 }
@@ -201,12 +242,12 @@ export default function SessionSheet({ sessionId, onClose }) {
 
           {roster.length === 0 && waitlist.length === 0
             ? <EmptyState icon={UserPlus} title="Sin reservas todavía" text="Agrega una clienta o espera a que reserven desde la app." />
-            : <ul className="divide-y divide-line">{roster.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} />)}</ul>}
+            : <ul className="divide-y divide-line">{roster.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} sessionId={sessionId} />)}</ul>}
 
           {waitlist.length > 0 && (
             <div>
               <p className="eyebrow mb-1">Lista de espera · {waitlist.length}</p>
-              <ul className="divide-y divide-line">{waitlist.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} />)}</ul>
+              <ul className="divide-y divide-line">{waitlist.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} sessionId={sessionId} />)}</ul>
             </div>
           )}
 

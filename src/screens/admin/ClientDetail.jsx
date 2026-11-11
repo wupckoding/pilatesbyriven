@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, CalendarX2, Mail, MessageCircle, Pencil, Phone } from 'lucide-react'
+import { ArrowLeft, CalendarX2, Mail, MessageCircle, PackagePlus, Pencil, Phone } from 'lucide-react'
+import { Credits, PackageRow, PackageSheet, PaymentSheet, SellPackageSheet } from './commerce'
 import { api } from '../../lib/api'
-import { ATTENDANCE, BOOKING_STATUS, CLIENT_STATUS, INTAKE, MODALITY, SOURCE, capitalize, fmtDate, fmtPhone, fmtTime, todayCR, waLink } from '../../lib/format'
+import { ATTENDANCE, BOOKING_STATUS, CLIENT_STATUS, INTAKE, MODALITY, PACKAGE_STATUS, SOURCE, capitalize, fmtDate, fmtMoney, fmtPhone, fmtTime, todayCR, waLink } from '../../lib/format'
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, SectionTitle, Skeleton } from '../../ui'
 import ClientForm from './ClientForm'
 import SessionSheet from './SessionSheet'
@@ -22,7 +23,10 @@ function BookingLine({ booking, onOpen }) {
         <p className="truncate text-sm font-semibold text-ink">{booking.name}</p>
         <p className="text-[13px] text-ink-3">{capitalize(fmtDate(booking.localDate, { weekday: 'long' }))} · {fmtTime(booking.localTime)} · {MODALITY[booking.modality]}</p>
       </div>
-      <Badge tone={state.tone}>{state.label}</Badge>
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        <Badge tone={state.tone}>{state.label}</Badge>
+        {!booking.packageId && booking.status !== 'cancelled' && booking.status !== 'waitlisted' && <Badge tone="honey">Sin paquete</Badge>}
+      </span>
     </button>
   )
 }
@@ -38,6 +42,9 @@ export default function ClientDetail() {
   const { id } = useParams()
   const [editing, setEditing] = useState(false)
   const [openSession, setOpenSession] = useState(null)
+  const [openPackage, setOpenPackage] = useState(null)
+  const [selling, setSelling] = useState(false)
+  const [paying, setPaying] = useState(false)
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['client', id],
     queryFn: () => api.get(`/admin/clients/${id}`),
@@ -51,7 +58,9 @@ export default function ClientDetail() {
   if (isLoading) return <div className="space-y-6">{back}<Skeleton className="h-40" /><Skeleton className="h-64" /></div>
   if (isError) return <div className="space-y-6">{back}<ErrorState error={error} onRetry={refetch} /></div>
 
-  const { client, upcoming, history, stats } = data
+  const { client, upcoming, history, stats, packages } = data
+  const current = packages.filter((p) => p.status === 'active' || p.status === 'pending_payment')
+  const previous = packages.filter((p) => !current.includes(p))
   const status = CLIENT_STATUS[client.status]
   const intake = INTAKE[client.intakeStatus]
 
@@ -71,7 +80,8 @@ export default function ClientDetail() {
             {client.hasAccount && <Badge>Con cuenta en la app</Badge>}
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button icon={PackagePlus} onClick={() => setSelling(true)}>{current.length ? 'Renovar' : 'Vender paquete'}</Button>
           {client.whatsapp && <Button variant="whatsapp" icon={MessageCircle} href={waLink(client.whatsapp)}>WhatsApp</Button>}
           <Button variant="secondary" icon={Pencil} onClick={() => setEditing(true)}>Editar</Button>
         </div>
@@ -88,6 +98,37 @@ export default function ClientDetail() {
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <div className="space-y-8">
+          <section>
+            <SectionTitle action={<button type="button" className="text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => setPaying(true)}>Registrar pago suelto</button>}>
+              Paquetes
+            </SectionTitle>
+            {packages.length === 0
+              ? <EmptyState icon={PackagePlus} title="Sin paquetes" text="Vende una clase de prueba, una clase suelta o el paquete mensual." action={<Button variant="secondary" onClick={() => setSelling(true)}>Vender paquete</Button>} />
+              : (
+                <div className="space-y-3">
+                  {current.map((p) => (
+                    <Card key={p.id} as="button" type="button" interactive onClick={() => setOpenPackage(p.id)} className="block w-full p-5 text-left">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[15px] font-semibold text-ink">{p.name}</p>
+                          <p className="tnum text-[13px] text-ink-3">Vence el {fmtDate(p.expiresOn, { day: 'numeric', month: 'long' })}{p.groupName ? ` · ${p.groupName}` : ''}</p>
+                        </div>
+                        <div className="flex gap-1.5">
+                          {p.balanceCents > 0 && <Badge tone="honey">Saldo {fmtMoney(p.balanceCents, p.currency)}</Badge>}
+                          <Badge tone={PACKAGE_STATUS[p.status].tone}>{PACKAGE_STATUS[p.status].label}</Badge>
+                        </div>
+                      </div>
+                      <div className="mt-4"><Credits pkg={p} /></div>
+                    </Card>
+                  ))}
+                  {previous.length > 0 && (
+                    <Card className="divide-y divide-line overflow-hidden">
+                      {previous.map((p) => <PackageRow key={p.id} pkg={p} showClient={false} onOpen={() => setOpenPackage(p.id)} />)}
+                    </Card>
+                  )}
+                </div>
+              )}
+          </section>
           <section>
             <SectionTitle>Próximas clases</SectionTitle>
             {upcoming.length === 0
@@ -138,6 +179,9 @@ export default function ClientDetail() {
 
       {editing && <ClientForm client={client} onClose={() => setEditing(false)} />}
       <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
+      <PackageSheet packageId={openPackage} onClose={() => setOpenPackage(null)} />
+      {selling && <SellPackageSheet client={client} onClose={() => setSelling(false)} onCreated={(pkg) => setOpenPackage(pkg.id)} />}
+      {paying && <PaymentSheet clientId={client.id} clientName={client.fullName} onClose={() => setPaying(false)} />}
     </div>
   )
 }

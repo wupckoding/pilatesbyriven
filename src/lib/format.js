@@ -104,3 +104,52 @@ export const INTAKE = {
   needs_review: { label: 'Requiere revisión', tone: 'terracotta' },
   needs_update: { label: 'Requiere actualización', tone: 'honey' },
 }
+
+// ─── Dinero ──────────────────────────────────────────────
+const SYMBOL = { USD: 'US$', CRC: '₡' }
+
+/** 8000, 'USD' → "US$80"; 8050 → "US$80.50". Los importes viajan en centavos. */
+export const fmtMoney = (cents, currency = 'USD', { sign = false } = {}) => {
+  const value = (cents || 0) / 100
+  const whole = Number.isInteger(value)
+  const text = Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 })
+  const prefix = value < 0 ? '−' : sign && value > 0 ? '+' : ''
+  return `${prefix}${SYMBOL[currency] || ''}${text}`
+}
+
+/** "80", "80.5", "1,200.50" o "40 000" → centavos. Devuelve null si no es un monto válido. */
+export const parseMoney = (text) => {
+  const clean = String(text ?? '').replace(/[\s,]/g, '')
+  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null
+  return Math.round(Number(clean) * 100)
+}
+
+export const METHOD = { sinpe: 'SINPE', card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia', other: 'Otro' }
+export const PRODUCT_KIND = { trial: 'Clase de prueba', single: 'Clase suelta', package: 'Paquete' }
+
+export const PACKAGE_STATUS = {
+  pending_payment: { label: 'Por cobrar', tone: 'honey' },
+  active: { label: 'Activo', tone: 'sage' },
+  expired: { label: 'Vencido', tone: 'neutral' },
+  cancelled: { label: 'Cancelado', tone: 'neutral' },
+  proposed: { label: 'Propuesto', tone: 'clay' },
+}
+
+export const PAYMENT_STATUS = {
+  pending: { label: 'Pendiente', tone: 'honey' },
+  to_verify: { label: 'Por verificar', tone: 'honey' },
+  verified: { label: 'Verificado', tone: 'sage' },
+  rejected: { label: 'Rechazado', tone: 'terracotta' },
+}
+
+export const EXPENSE_CATEGORIES = ['Alquiler', 'Equipo', 'Servicios', 'Limpieza', 'Marketing', 'Impuestos', 'Otro']
+
+/** Primer y último día del mes de una fecha. */
+export const monthRange = (ymd = todayCR()) => {
+  const from = `${ymd.slice(0, 7)}-01`
+  const d = new Date(`${from}T12:00:00Z`)
+  d.setUTCMonth(d.getUTCMonth() + 1)
+  return { from, to: addDays(d.toISOString().slice(0, 10), -1) }
+}
+
+export const newKey = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`)

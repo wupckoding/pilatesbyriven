@@ -6,7 +6,7 @@ import { ATTENDANCE, MODALITY, capitalize, fmtDate, fmtTime } from '../../lib/fo
 import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, Segmented, SkeletonList } from '../../ui'
 import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
-import { BookingCard, DateBlock, STATUS_HELP, useMyBookings, useRefreshMine } from './shared'
+import { BookingCard, DateBlock, MyPackageCard, STATUS_HELP, useMyBookings, useMyPackages, useRefreshMine } from './shared'
 
 function PastRow({ booking }) {
   const state = booking.attendance
@@ -32,6 +32,7 @@ export default function MyClasses() {
   const [tab, setTab] = useState('upcoming')
   const [cancelling, setCancelling] = useState(null)
   const { data, isLoading, isError, error, refetch } = useMyBookings()
+  const packages = useMyPackages()
 
   const cancel = useMutation({
     mutationFn: (id) => api.post(`/bookings/${id}/cancel`),
@@ -49,6 +50,11 @@ export default function MyClasses() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 lg:mx-0 lg:max-w-none">
       <PageHeader eyebrow="Mis clases" title="Tu agenda" />
+      {packages.data?.packages.length > 0 && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {packages.data.packages.slice(0, 2).map((p) => <MyPackageCard key={p.id} pkg={p} />)}
+        </div>
+      )}
       <Segmented
         label="Clases"
         value={tab}

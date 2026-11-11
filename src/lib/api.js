@@ -50,7 +50,30 @@ const qs = (params) => {
   return entries.length ? `?${new URLSearchParams(entries)}` : ''
 }
 
+/** Descarga un archivo protegido (CSV) con la sesión actual. */
+async function download(path, params, filename) {
+  let res
+  try {
+    res = await fetch(`${BASE}/api${path}${qs(params)}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  } catch {
+    throw new ApiError('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo')
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new ApiError(data.error || 'No se pudo generar el archivo', { status: res.status, code: data.code, data })
+  }
+  const url = URL.createObjectURL(await res.blob())
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 export const api = {
+  download,
   get: (path, params) => request('GET', path + qs(params)),
   post: (path, body = {}) => request('POST', path, body),
   put: (path, body = {}) => request('PUT', path, body),

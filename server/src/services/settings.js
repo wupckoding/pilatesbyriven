@@ -4,6 +4,9 @@ import { db } from '../db.js'
 export const SETTING_DEFAULTS = {
   cancelWindowHours: 8,
   renewalNoticeDays: 3,
+  holdDays: 5,                     // días que se retiene el cupo de una renovación sin pagar
+  absentConsumesCredit: true,      // una ausencia sin aviso cuenta como clase tomada
+  lateCancelConsumesCredit: true,  // una cancelación tardía cuenta como clase tomada
   monthlyPackagesGoal: 30,
   savingsGoalMonthCents: 150000,   // US$1.500
   savingsGoalTotalCents: 1800000,  // US$18.000 (Lindora)

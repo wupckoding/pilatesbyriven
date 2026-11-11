@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarCheck, ChevronRight, ClipboardCheck, Hourglass, PhoneCall, Sparkles } from 'lucide-react'
+import { ArrowRight, CalendarCheck, ChevronRight, ClipboardCheck, Hourglass, PhoneCall, Receipt, RefreshCw, Sparkles, TimerOff, Wallet } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { MODALITY, capitalize, firstName, fmtDate, fmtTime, greeting } from '../../lib/format'
+import { MODALITY, capitalize, firstName, fmtDate, fmtMoney, fmtTime, greeting } from '../../lib/format'
 import { Badge, Button, Card, EmptyState, ErrorState, Occupancy, SectionTitle, Skeleton, SkeletonList, Stat, cx } from '../../ui'
 import SessionSheet from './SessionSheet'
 
@@ -30,6 +30,54 @@ function TodayCard({ session, onOpen }) {
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-ink-3" aria-hidden="true" />
     </Card>
+  )
+}
+
+function Meter({ value, goal }) {
+  const width = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0
+  return (
+    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken" role="img" aria-label={`${width} % de la meta`}>
+      <div className="h-full rounded-full bg-clay transition-all duration-500" style={{ width: `${width}%` }} />
+    </div>
+  )
+}
+
+function MonthSummary({ month }) {
+  const usd = month.totals.USD
+  const crc = month.totals.CRC
+  const tile = 'block p-5'
+  return (
+    <section>
+      <SectionTitle action={<Link to="/caja" className="inline-flex items-center gap-1 text-[13px] font-semibold text-clay-deep hover:underline">Abrir Caja <ArrowRight className="h-3.5 w-3.5" /></Link>}>
+        Resumen de {fmtDate(month.from, { month: 'long' })}
+      </SectionTitle>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Card as={Link} to="/paquetes?vista=active" interactive className={tile}>
+          <p className="eyebrow">Paquetes pagados</p>
+          <p className="display tnum mt-3 text-[36px] text-ink">{month.packagesPaid}<span className="text-ink-3"> / {month.packagesGoal}</span></p>
+          <Meter value={month.packagesPaid} goal={month.packagesGoal} />
+          <p className="mt-2 text-[13px] text-ink-3">Meta del mes</p>
+        </Card>
+        <Card as={Link} to="/paquetes?vista=payments" interactive className={tile}>
+          <p className="eyebrow">Cobros</p>
+          <p className="display tnum mt-3 text-[36px] text-ink">{fmtMoney(usd.collected, 'USD')}</p>
+          <p className="tnum mt-2 text-[13px] text-ink-3">
+            {[crc.collected > 0 && `+ ${fmtMoney(crc.collected, 'CRC')}`, usd.refunds > 0 && `reembolsos ${fmtMoney(usd.refunds, 'USD')}`, month.receivablesCount > 0 && `${month.receivablesCount} por cobrar`].filter(Boolean).join(' · ') || 'Confirmados en el mes'}
+          </p>
+        </Card>
+        <Card as={Link} to="/caja" interactive className={tile}>
+          <p className="eyebrow">Disponible</p>
+          <p className={cx('display tnum mt-3 text-[36px]', usd.available < 0 ? 'text-terracotta' : 'text-ink')}>{fmtMoney(usd.available, 'USD')}</p>
+          <p className="tnum mt-2 text-[13px] text-ink-3">Gastos {fmtMoney(usd.expenses, 'USD')}{crc.available !== 0 ? ` · ${fmtMoney(crc.available, 'CRC')}` : ''}</p>
+        </Card>
+        <Card as={Link} to="/caja" interactive className={tile}>
+          <p className="eyebrow">Ahorro Lindora</p>
+          <p className="display tnum mt-3 text-[36px] text-ink">{fmtMoney(month.savings.period, 'USD')}</p>
+          <Meter value={month.savings.period} goal={month.savings.goalMonth} />
+          <p className="tnum mt-2 text-[13px] text-ink-3">Meta {fmtMoney(month.savings.goalMonth, 'USD')} · acumulado {fmtMoney(month.savings.total, 'USD')} de {fmtMoney(month.savings.goalTotal, 'USD')}</p>
+        </Card>
+      </div>
+    </section>
   )
 }
 
@@ -97,13 +145,20 @@ export default function AdminHome() {
         <section>
           <SectionTitle>Pendientes</SectionTitle>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Pagos" value={counts.paymentsToVerify} hint="Por verificar" to="/paquetes?vista=payments" icon={Receipt} tone={counts.paymentsToVerify ? 'alert' : 'default'} />
+            <Stat label="Renovaciones" value={counts.renewalsDue} hint="Paquetes por vencer" to="/paquetes?vista=expiring" icon={RefreshCw} />
+            <Stat label="Retenciones" value={counts.holdsExpired} hint="Vencidas sin pago" to="/paquetes?vista=due" icon={TimerOff} tone={counts.holdsExpired ? 'alert' : 'default'} />
             <Stat label="Por confirmar" value={counts.pendingBookings} hint="Reservas nuevas" to="/reservas?vista=pending" icon={CalendarCheck} tone={counts.pendingBookings ? 'alert' : 'default'} />
             <Stat label="Lista de espera" value={counts.waitlisted} hint="Esperan un cupo" to="/reservas?vista=waitlist" icon={Hourglass} />
             <Stat label="Asistencia" value={counts.attendancePending} hint="Por tomar" to="/reservas?vista=attendance" icon={ClipboardCheck} tone={counts.attendancePending ? 'alert' : 'default'} />
             <Stat label="Seguimientos" value={counts.followupsDue} hint="Para hoy o vencidos" to="/clientas?seguimiento=1" icon={PhoneCall} />
+            <Stat label="Por cobrar" value={data.month?.receivablesCount ?? 0} hint="Paquetes con saldo" to="/paquetes?vista=due" icon={Wallet} />
           </div>
         </section>
       )}
+
+      {/* Resumen mensual: cobros por fecha de recepción, paquetes por mes de servicio */}
+      {isAdmin && data?.month && <MonthSummary month={data.month} />}
 
       <div className="grid gap-9 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section>

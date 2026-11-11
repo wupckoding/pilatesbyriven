@@ -11,7 +11,8 @@ import Bookings from './screens/admin/Bookings'
 import Clients from './screens/admin/Clients'
 import ClientDetail from './screens/admin/ClientDetail'
 import Settings from './screens/admin/Settings'
-import ComingSoon from './screens/admin/ComingSoon'
+import Packages from './screens/admin/Packages'
+import Caja from './screens/admin/Caja'
 import ClientHome from './screens/client/Home'
 import Book from './screens/client/Book'
 import MyClasses from './screens/client/MyClasses'
@@ -68,8 +69,8 @@ export default function App() {
             <Route path="/reservas" element={<Bookings />} />
             <Route path="/clientas" element={<Clients />} />
             <Route path="/clientas/:id" element={<ClientDetail />} />
-            <Route path="/paquetes" element={<ComingSoon kind="paquetes" />} />
-            <Route path="/caja" element={<ComingSoon kind="caja" />} />
+            <Route path="/paquetes" element={<Packages />} />
+            <Route path="/caja" element={<Caja />} />
           </>
         )}
         <Route path="/ajustes" element={<Settings />} />

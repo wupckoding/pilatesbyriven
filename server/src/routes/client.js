@@ -7,6 +7,7 @@ import { requireAuth } from '../auth.js'
 import { SESSION_SELECT } from '../services/sessions.js'
 import { createBooking, cancelOwnBooking } from '../services/bookings.js'
 import { getSettings } from '../services/settings.js'
+import { listPackages } from '../services/packages.js'
 
 // Rutas de la clienta autenticada: solo ve y modifica sus propios datos.
 const router = Router()
@@ -54,13 +55,13 @@ router.get('/sessions', h(async (req, res) => {
 router.get('/bookings', h(async (req, res) => {
   const client = await ownClient(req)
   const rows = await db.query(
-    `select b.id, b.status, b.attendance, b.created_at, b.cancelled_at,
+    `select b.id, b.status, b.attendance, b.created_at, b.cancelled_at, (b.package_id is not null) as covered_by_package,
             s.id as session_id, s.local_date, s.local_time, s.starts_at, s.name, s.modality, s.kind,
             s.duration_min, s.status as session_status, s.cancel_reason, u.full_name as instructor_name
        from bookings b
        join class_sessions s on s.id = b.session_id
        left join users u on u.id = s.instructor_id
-      where b.client_id = $1
+      where b.client_id = $1 and b.status <> 'rescheduled'
       order by s.starts_at desc limit 200`, [client.id])
   const now = Date.now()
   const isLive = (b) => ['pending', 'confirmed', 'waitlisted'].includes(b.status) && b.sessionStatus === 'scheduled'
@@ -68,6 +69,19 @@ router.get('/bookings', h(async (req, res) => {
   const past = rows.filter((b) => !upcoming.includes(b))
   const { cancelWindowHours } = await getSettings()
   res.json({ upcoming, past, cancelWindowHours })
+}))
+
+// Paquetes de la clienta: saldo de clases, vencimiento y estado del pago.
+router.get('/packages', h(async (req, res) => {
+  const client = await ownClient(req)
+  const rows = await listPackages(db, `where p.client_id = $2 and p.status <> 'cancelled'`, [client.id], 'order by p.expires_on desc limit 20')
+  const packages = rows.map((p) => ({
+    id: p.id, name: p.name, kind: p.kind, status: p.status, startsOn: p.startsOn, expiresOn: p.expiresOn,
+    sessionsTotal: p.sessionsTotal, used: p.used, reserved: p.reserved, available: p.available,
+    priceCents: p.priceCents, currency: p.currency, paidCents: p.paidCents, balanceCents: p.balanceCents,
+    toVerifyCents: p.toVerifyCents,
+  }))
+  res.json({ packages })
 }))
 
 router.post('/bookings', h(async (req, res) => {

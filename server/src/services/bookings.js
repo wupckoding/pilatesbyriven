@@ -1,6 +1,7 @@
 import { tx } from '../db.js'
 import { HttpError } from '../lib/http.js'
 import { audit } from '../lib/audit.js'
+import { claimPackageCredit } from './packages.js'
 
 const LIVE = `('pending','confirmed','waitlisted')`
 const HOLDING = `('pending','confirmed')`
@@ -30,8 +31,17 @@ const isBlocked = async (t, session) =>
  * - Repetir la misma solicitud (doble toque, reintento) devuelve la reserva existente.
  * - Si no hay lugar: 409 SESSION_FULL, o entra a lista de espera si joinWaitlist.
  */
-export function createBooking({ sessionId, clientId, actor, byStaff = false, joinWaitlist = false }) {
-  return tx(async (t) => {
+export function createBooking(options) {
+  return tx((t) => createBookingIn(t, options))
+}
+
+/**
+ * Igual que createBooking pero dentro de una transacción ya abierta.
+ * packageId: undefined = usar automáticamente un paquete vigente con crédito; null = sin paquete; id = ese paquete.
+ * status: fuerza el estado inicial (la renovación retiene el cupo como 'pending' hasta el pago).
+ */
+export async function createBookingIn(t, { sessionId, clientId, actor, byStaff = false, joinWaitlist = false, packageId, status: forcedStatus }) {
+  {
     const session = await lockSession(t, sessionId)
     if (session.status !== 'scheduled') throw new HttpError(409, 'Esta clase fue cancelada', 'SESSION_CANCELLED')
 
@@ -50,16 +60,63 @@ export function createBooking({ sessionId, clientId, actor, byStaff = false, joi
 
     const taken = await countTaken(t, sessionId)
     let status
-    if (taken < session.capacity) status = byStaff ? 'confirmed' : 'pending'
+    if (taken < session.capacity) status = forcedStatus || (byStaff ? 'confirmed' : 'pending')
     else if (joinWaitlist) status = 'waitlisted'
-    else throw new HttpError(409, 'Este horario está lleno', 'SESSION_FULL', { canWaitlist: true })
+    else throw new HttpError(409, 'Este horario está lleno', 'SESSION_FULL', { canWaitlist: true, localDate: session.localDate })
+
+    // La lista de espera no consume crédito: se asigna al dar el cupo.
+    let coveredBy = null
+    if (status !== 'waitlisted' && packageId !== null) {
+      const pkg = await claimPackageCredit(t, { clientId, localDate: session.localDate, packageId: packageId || null })
+      coveredBy = pkg?.id || null
+    }
 
     const booking = await t.one(
-      `insert into bookings (session_id, client_id, status, created_by) values ($1,$2,$3,$4) returning *`,
-      [sessionId, clientId, status, actor.id],
+      `insert into bookings (session_id, client_id, status, package_id, created_by) values ($1,$2,$3,$4,$5) returning *`,
+      [sessionId, clientId, status, coveredBy, actor.id],
     )
-    await audit(t, actor.id, 'booking.create', 'booking', booking.id, { sessionId, clientId, status })
+    await audit(t, actor.id, 'booking.create', 'booking', booking.id, { sessionId, clientId, status, packageId: coveredBy })
     return { booking, created: true }
+  }
+}
+
+/**
+ * Mueve una reserva a otra clase: libera el cupo anterior, toma el nuevo y conserva el mismo crédito.
+ * La reserva original queda como 'rescheduled' y la nueva guarda el vínculo y el motivo.
+ */
+export function rescheduleBooking({ bookingId, targetSessionId, actor, reason = '' }) {
+  return tx(async (t) => {
+    const original = await t.one('select * from bookings where id = $1', [bookingId])
+    if (!original) throw new HttpError(404, 'Reserva no encontrada', 'NOT_FOUND')
+    if (original.sessionId === targetSessionId) throw new HttpError(400, 'Elige una clase distinta', 'VALIDATION')
+    // Bloqueo de ambas sesiones en orden fijo para que dos cambios cruzados no se bloqueen entre sí.
+    for (const id of [original.sessionId, targetSessionId].sort()) await lockSession(t, id)
+    const booking = await t.one('select * from bookings where id = $1 for update', [bookingId])
+    if (!['pending', 'confirmed'].includes(booking.status) || booking.attendance) {
+      throw new HttpError(409, 'Solo se puede mover una reserva vigente y sin asistencia', 'INVALID_STATE')
+    }
+    const target = await t.one('select * from class_sessions where id = $1', [targetSessionId])
+    if (target.status !== 'scheduled') throw new HttpError(409, 'La clase de destino está cancelada', 'SESSION_CANCELLED')
+    const dup = await t.one(
+      `select 1 as x from bookings where session_id = $1 and client_id = $2 and status in ${LIVE}`, [targetSessionId, booking.clientId])
+    if (dup) throw new HttpError(409, 'La clienta ya tiene una reserva en esa clase', 'DUPLICATE')
+    if ((await countTaken(t, targetSessionId)) >= target.capacity) {
+      throw new HttpError(409, 'La clase de destino está llena', 'SESSION_FULL')
+    }
+    if (booking.packageId) {
+      const pkg = await t.one('select expires_on from client_packages where id = $1 for update', [booking.packageId])
+      if (target.localDate > pkg.expiresOn) {
+        throw new HttpError(409, 'La nueva fecha queda fuera de la vigencia del paquete. Extiende la vigencia primero', 'PACKAGE_EXPIRED')
+      }
+    }
+    await t.run(
+      `update bookings set status = 'rescheduled', reason = $2, updated_at = now() where id = $1`, [bookingId, reason])
+    const moved = await t.one(
+      `insert into bookings (session_id, client_id, status, package_id, rescheduled_from_id, reason, created_by)
+       values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+      [targetSessionId, booking.clientId, booking.status, booking.packageId, bookingId, reason, actor.id])
+    await audit(t, actor.id, 'booking.reschedule', 'booking', moved.id, { from: booking.sessionId, to: targetSessionId, reason })
+    return moved
   })
 }
 
@@ -101,6 +158,7 @@ export function staffUpdateBooking({ bookingId, actor, status, attendance, reaso
 
     let nextStatus = booking.status
     let nextAttendance = booking.attendance
+    let nextPackageId = booking.packageId
 
     if (attendance !== undefined) {
       if (booking.status === 'waitlisted') throw new HttpError(409, 'Está en lista de espera', 'INVALID_STATE')
@@ -127,14 +185,22 @@ export function staffUpdateBooking({ bookingId, actor, status, attendance, reaso
         `select 1 as x from bookings where session_id = $1 and client_id = $2 and status in ${LIVE} and id <> $3`,
         [session.id, booking.clientId, bookingId])
       if (dup) throw new HttpError(409, 'La clienta ya tiene otra reserva en esta clase', 'DUPLICATE')
+      // Al volver a ocupar un cupo se toma un crédito vigente (si la reserva ya consumía uno, lo conserva).
+      const alreadyCounted = ['cancelled_late', 'absent', 'attended', 'made_up'].includes(booking.attendance)
+      if (!(booking.packageId && alreadyCounted)) {
+        const pkg = await claimPackageCredit(t, {
+          clientId: booking.clientId, localDate: session.localDate, packageId: booking.packageId || null,
+        }).catch((err) => { if (err.code === 'NO_CREDIT') return null; throw err })
+        nextPackageId = pkg?.id || null
+      }
     }
 
     const updated = await t.one(
-      `update bookings set status = $2, attendance = $3, reason = coalesce($4, reason),
+      `update bookings set status = $2, attendance = $3, reason = coalesce($4, reason), package_id = $5,
               cancelled_at = case when $2 = 'cancelled' then coalesce(cancelled_at, now()) else null end,
               updated_at = now()
         where id = $1 returning *`,
-      [bookingId, nextStatus, nextAttendance, reason ?? null])
+      [bookingId, nextStatus, nextAttendance, reason ?? null, nextPackageId])
     await audit(t, actor.id, 'booking.update', 'booking', bookingId, {
       from: { status: booking.status, attendance: booking.attendance },
       to: { status: nextStatus, attendance: nextAttendance },

@@ -1,14 +1,14 @@
 import React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { BOOKING_STATUS, MODALITY, fmtDate, fmtTime } from '../../lib/format'
+import { BOOKING_STATUS, MODALITY, fmtDate, fmtMoney, fmtTime } from '../../lib/format'
 import { Badge, Card } from '../../ui'
 
 export const useMyBookings = () => useQuery({ queryKey: ['my-bookings'], queryFn: () => api.get('/bookings') })
 
 export const useRefreshMine = () => {
   const qc = useQueryClient()
-  return () => Promise.all(['my-bookings', 'sessions'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
+  return () => Promise.all(['my-bookings', 'sessions', 'my-packages'].map((key) => qc.invalidateQueries({ queryKey: [key] })))
 }
 
 /** Qué significa cada estado para la clienta, en una línea. */
@@ -46,6 +46,37 @@ export function BookingCard({ booking, action }) {
         </div>
       </div>
       {action}
+    </Card>
+  )
+}
+
+export const useMyPackages = () => useQuery({ queryKey: ['my-packages'], queryFn: () => api.get('/packages') })
+
+const PAY_STATE = (pkg) => {
+  if (pkg.balanceCents === 0) return { label: 'Pago confirmado', tone: 'sage' }
+  if (pkg.toVerifyCents >= pkg.balanceCents) return { label: 'Pago por verificar', tone: 'honey' }
+  return { label: `Pago pendiente · ${fmtMoney(pkg.balanceCents, pkg.currency)}`, tone: 'honey' }
+}
+
+/** Saldo y vencimiento del paquete, tal como lo ve la clienta. */
+export function MyPackageCard({ pkg }) {
+  const pay = PAY_STATE(pkg)
+  const expired = pkg.status === 'expired'
+  const bars = Array.from({ length: Math.min(pkg.sessionsTotal, 12) }, (_, i) => (i < pkg.used ? 'used' : i < pkg.used + pkg.reserved ? 'reserved' : 'free'))
+  return (
+    <Card className={`p-5 ${expired ? 'opacity-70' : ''}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[15px] font-semibold text-ink">{pkg.name}</p>
+          <p className="tnum text-[13px] text-ink-3">{expired ? 'Venció' : 'Vence'} el {fmtDate(pkg.expiresOn, { day: 'numeric', month: 'long' })}</p>
+        </div>
+        <Badge tone={expired ? 'neutral' : pay.tone}>{expired ? 'Vencido' : pay.label}</Badge>
+      </div>
+      <p className="display tnum mt-4 text-[40px] text-ink">{pkg.available}<span className="text-xl text-ink-3"> de {pkg.sessionsTotal} {pkg.sessionsTotal === 1 ? 'clase' : 'clases'} por reservar</span></p>
+      <div className="mt-3 flex gap-1" role="img" aria-label={`${pkg.used} tomadas, ${pkg.reserved} reservadas, ${pkg.available} disponibles`}>
+        {bars.map((state, i) => <span key={i} className={`h-1.5 flex-1 rounded-full ${state === 'used' ? 'bg-ink/25' : state === 'reserved' ? 'bg-clay' : 'bg-sage'}`} />)}
+      </div>
+      <p className="tnum mt-2 text-[13px] text-ink-3">{pkg.used} {pkg.used === 1 ? 'tomada' : 'tomadas'} · {pkg.reserved} {pkg.reserved === 1 ? 'reservada' : 'reservadas'}</p>
     </Card>
   )
 }

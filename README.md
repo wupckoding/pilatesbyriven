@@ -36,22 +36,23 @@ cd server
 npm test
 ```
 
-Cobrem: cadastro e ID de alumna, login e sessões, permissões por papel, último cupo com solicitações
-simultâneas, duplo toque, lista de espera, cancelamento tardio, asistencia, duplicados por WhatsApp,
-geração de sessões no fuso da Costa Rica, mudança de série e exclusão de conta.
+São 34 testes. Além de cadastro, permissões, último cupo e fuso horário, cobrem os casos de aceitação do documento
+de requisitos: renovação com pagamento parcial confirmada uma única vez, quatro clases e uma reposição,
+ausência e cancelamento conforme a regra do pacote, e o fechamento de Caja do exemplo (US$2.400 cobrados,
+US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos).
 
 ## Estrutura
 
 ```
 server/
-  migrations/         SQL versionado (001 núcleo, 002 catálogo/pagamentos)
-  src/routes/         auth, client (clienta), admin (painel)
-  src/services/       reservas (trava de cupo), sessões, ajustes
+  migrations/         SQL versionado (001 núcleo, 002 catálogo/pagamentos, 003 câmbio e idempotência)
+  src/routes/         auth, client (clienta), admin (painel), commerce (pacotes, pagamentos, Caja)
+  src/services/       reservas (trava de cupo), pacotes (créditos), sessões, ajustes
   test/               testes de integração
 src/
   ui/                 design system (botões, cartões, folha modal, toasts)
   app/Shell.jsx       barra lateral (computador) e barra inferior (celular)
-  screens/admin/      Inicio, Agenda, Reservas, Clientas, Ajustes
+  screens/admin/      Inicio, Agenda, Reservas, Clientas, Paquetes y pagos, Caja, Ajustes
   screens/client/     Inicio, Reservar, Mis clases, Perfil
 ```
 
@@ -60,7 +61,7 @@ src/
 | Fase | Conteúdo | Estado |
 |---|---|---|
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
-| 2 | Pacotes, renovações, pagamentos, Caja e fundo Lindora, exportação | Pendente (tabelas já criadas) |
+| 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
 | 3 | Formulário clínico e consentimento, SINPE e Compra Click | Pendente |
 | 4 | Simulação de usuários, deploy na VPS (Docker, nginx, backup), app iPhone | Pendente |
 

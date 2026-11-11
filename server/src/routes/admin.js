@@ -7,8 +7,10 @@ import { audit } from '../lib/audit.js'
 import { addDays, todayCR, weekStart, formatStudentNumber } from '../lib/time.js'
 import { requireAuth, requireRole } from '../auth.js'
 import { SESSION_SELECT, generateSessions } from '../services/sessions.js'
-import { createBooking, staffUpdateBooking } from '../services/bookings.js'
+import { createBooking, rescheduleBooking, staffUpdateBooking } from '../services/bookings.js'
 import { getSettings, saveSettings } from '../services/settings.js'
+import { listPackages } from '../services/packages.js'
+import { cajaSummary, monthRange } from './commerce.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -58,10 +60,11 @@ router.get('/dashboard', staff, h(async (req, res) => {
   const body = { today, weekFrom: monday, weekTo: sunday, todaySessions, week: { ...week, free: Math.max(0, week.capacity - week.taken) } }
 
   if (req.user.role === 'admin') {
+    const settings = await getSettings()
     body.counts = await db.one(
       `select
          (select count(*)::int from bookings b join class_sessions s on s.id = b.session_id
-           where b.status = 'pending' and s.starts_at > now()) as pending_bookings,
+           where b.status = 'pending' and s.starts_at > now() and not exists (select 1 from client_packages h where h.id = b.package_id and h.status = 'pending_payment')) as pending_bookings,
          (select count(*)::int from bookings b join class_sessions s on s.id = b.session_id
            where b.status = 'waitlisted' and s.starts_at > now()) as waitlisted,
          (select count(*)::int from bookings b join class_sessions s on s.id = b.session_id
@@ -70,8 +73,27 @@ router.get('/dashboard', staff, h(async (req, res) => {
          (select count(*)::int from clients where archived_at is null) as clients_total,
          (select count(distinct b.client_id)::int from bookings b where b.attendance = 'attended') as clients_attended,
          (select count(*)::int from clients where archived_at is null and status = 'active') as clients_active,
-         (select count(*)::int from clients where archived_at is null and next_followup_on <= $1::date) as followups_due`,
-      [today])
+         (select count(*)::int from clients where archived_at is null and next_followup_on <= $1::date) as followups_due,
+         (select count(*)::int from payments where kind = 'payment' and status = 'to_verify') as payments_to_verify,
+         (select count(*)::int from client_packages where status = 'pending_payment' and hold_until < $1::date) as holds_expired,
+         (select count(*)::int from client_packages
+           where status = 'active' and kind = 'package' and expires_on >= $1::date and expires_on <= $1::date + $2::int) as renewals_due`,
+      [today, settings.renewalNoticeDays])
+
+    // Resumen mensual: cobros por fecha de recepción, paquetes por mes de servicio.
+    const month = monthRange(today)
+    const caja = await cajaSummary(db, month)
+    const paid = await db.one(
+      `select count(*)::int as n from client_packages
+        where kind = 'package' and status = 'active' and starts_on between $1 and $2`, [month.from, month.to])
+    body.month = {
+      ...month,
+      packagesPaid: paid.n,
+      packagesGoal: settings.monthlyPackagesGoal,
+      totals: caja.totals,
+      savings: caja.savings,
+      receivablesCount: caja.receivables.length,
+    }
   }
   res.json(body)
 }))
@@ -96,9 +118,9 @@ router.get('/sessions/:id', staff, h(async (req, res) => {
   // La instructora ve nombre y estado de admisión; el contacto queda para administración.
   const contact = req.user.role === 'admin' ? ', c.whatsapp' : ''
   const bookings = await db.query(
-    `select b.id, b.status, b.attendance, b.created_at, b.offered_at,
+    `select b.id, b.status, b.attendance, b.created_at, b.offered_at, b.package_id, (kp.status = 'pending_payment') as held_for_payment,
             c.id as client_id, c.full_name, c.student_number, c.intake_status${contact}
-       from bookings b join clients c on c.id = b.client_id
+       from bookings b join clients c on c.id = b.client_id left join client_packages kp on kp.id = b.package_id
       where b.session_id = $1 and b.status <> 'rescheduled'
       order by case b.status when 'confirmed' then 0 when 'pending' then 1 when 'waitlisted' then 2 else 3 end, b.created_at`,
     [id])
@@ -282,11 +304,19 @@ router.post('/bookings', admin, h(async (req, res) => {
   res.status(created ? 201 : 200).json({ booking })
 }))
 
+// Reprogramar: libera el cupo anterior, toma el nuevo y conserva el crédito.
+router.post('/bookings/:id/reschedule', admin, h(async (req, res) => {
+  const { id } = parse(z.object({ id: uuid }), req.params)
+  const body = parse(z.object({ sessionId: uuid, reason: z.string().trim().max(300).optional() }), req.body)
+  const booking = await rescheduleBooking({ bookingId: id, targetSessionId: body.sessionId, actor: req.user, reason: body.reason || '' })
+  res.status(201).json({ booking })
+}))
+
 // Listas detrás de los indicadores de Inicio: por confirmar, en espera y asistencia por tomar.
 router.get('/bookings', admin, h(async (req, res) => {
   const { view } = parse(z.object({ view: z.enum(['pending', 'waitlist', 'attendance']) }), req.query)
   const where = {
-    pending: `b.status = 'pending' and s.starts_at > now()`,
+    pending: `b.status = 'pending' and s.starts_at > now() and not exists (select 1 from client_packages h where h.id = b.package_id and h.status = 'pending_payment')`,
     waitlist: `b.status = 'waitlisted' and s.starts_at > now()`,
     attendance: `b.status = 'confirmed' and b.attendance is null and s.starts_at < now() and s.local_date >= $1::date - 14`,
   }[view]
@@ -405,10 +435,10 @@ router.get('/clients/:id', admin, h(async (req, res) => {
        from clients c left join class_groups g on g.id = c.home_group_id where c.id = $1`, [id])
   if (!client) throw new HttpError(404, 'Clienta no encontrada', 'NOT_FOUND')
   const bookings = await db.query(
-    `select b.id, b.status, b.attendance, b.created_at,
+    `select b.id, b.status, b.attendance, b.created_at, b.package_id,
             s.id as session_id, s.local_date, s.local_time, s.starts_at, s.name, s.modality, s.status as session_status
        from bookings b join class_sessions s on s.id = b.session_id
-      where b.client_id = $1 order by s.starts_at desc limit 100`, [id])
+      where b.client_id = $1 and b.status <> 'rescheduled' order by s.starts_at desc limit 100`, [id])
   const now = Date.now()
   const live = (b) => ['pending', 'confirmed', 'waitlisted'].includes(b.status) && b.sessionStatus === 'scheduled'
   const upcoming = bookings.filter((b) => new Date(b.startsAt) > now && live(b)).reverse()
@@ -417,7 +447,11 @@ router.get('/clients/:id', admin, h(async (req, res) => {
             count(*) filter (where attendance = 'absent')::int as absent,
             count(*) filter (where attendance in ('cancelled_notice','cancelled_late'))::int as cancelled
        from bookings where client_id = $1`, [id])
-  res.json({ client: withCode(client), upcoming, history: bookings.filter((b) => !upcoming.includes(b)), stats })
+  const packages = await listPackages(db, 'where p.client_id = $2', [id], 'order by p.starts_on desc, p.created_at desc')
+  const payments = await db.query(
+    `select y.id, y.kind, y.amount_cents, y.currency, y.method, y.reference, y.status, y.received_on, y.package_id, y.note
+       from payments y where y.client_id = $1 order by y.created_at desc limit 50`, [id])
+  res.json({ client: withCode(client), upcoming, history: bookings.filter((b) => !upcoming.includes(b)), stats, packages, payments })
 }))
 
 router.patch('/clients/:id', admin, h(async (req, res) => {
@@ -455,6 +489,9 @@ router.put('/settings', admin, h(async (req, res) => {
   const body = parse(z.object({
     cancelWindowHours: z.number().int().min(0, 'Mínimo 0 horas').max(72, 'Máximo 72 horas').optional(),
     renewalNoticeDays: z.number().int().min(0).max(30).optional(),
+    holdDays: z.number().int().min(0, 'Mínimo 0 días').max(60, 'Máximo 60 días').optional(),
+    absentConsumesCredit: z.boolean().optional(),
+    lateCancelConsumesCredit: z.boolean().optional(),
     monthlyPackagesGoal: z.number().int().min(0).max(1000).optional(),
     savingsGoalMonthCents: z.number().int().min(0).optional(),
     savingsGoalTotalCents: z.number().int().min(0).optional(),

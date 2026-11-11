@@ -4,13 +4,16 @@ import { ArrowRight, CalendarPlus, MapPin, MessageCircle } from 'lucide-react'
 import { useAuth } from '../../lib/auth'
 import { BOOKING_STATUS, MODALITY, capitalize, dayLabel, firstName, fmtTime, greeting, waLink } from '../../lib/format'
 import { Badge, Button, Card, ErrorState, SectionTitle, Skeleton } from '../../ui'
-import { BookingCard, STATUS_HELP, useMyBookings } from './shared'
+import { BookingCard, MyPackageCard, STATUS_HELP, useMyBookings, useMyPackages } from './shared'
 
 const STUDIO_WHATSAPP = '+50685438378'
 
 export default function ClientHome() {
   const { user, client } = useAuth()
   const { data, isLoading, isError, error, refetch } = useMyBookings()
+  const packages = useMyPackages()
+  // El paquete vigente (o por pagar) que vence primero.
+  const currentPackage = (packages.data?.packages || []).filter((p) => p.status !== 'expired').sort((a, b) => a.expiresOn.localeCompare(b.expiresOn))[0]
   const next = data?.upcoming[0]
   const rest = data?.upcoming.slice(1, 4) || []
 
@@ -64,6 +67,13 @@ export default function ClientHome() {
             También tienes
           </SectionTitle>
           <div className="space-y-3">{rest.map((b) => <BookingCard key={b.id} booking={b} />)}</div>
+        </section>
+      )}
+
+      {currentPackage && (
+        <section>
+          <SectionTitle>Tu paquete</SectionTitle>
+          <MyPackageCard pkg={currentPackage} />
         </section>
       )}
 
