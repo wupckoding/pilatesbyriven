@@ -75,6 +75,7 @@ router.get('/dashboard', staff, h(async (req, res) => {
          (select count(*)::int from clients where archived_at is null and status = 'active') as clients_active,
          (select count(*)::int from clients where archived_at is null and next_followup_on <= $1::date) as followups_due,
          (select count(*)::int from payments where kind = 'payment' and status = 'to_verify') as payments_to_verify,
+         (select count(*)::int from clients where archived_at is null and intake_status = 'needs_review') as intake_to_review,
          (select count(*)::int from client_packages where status = 'pending_payment' and hold_until < $1::date) as holds_expired,
          (select count(*)::int from client_packages
            where status = 'active' and kind = 'package' and expires_on >= $1::date and expires_on <= $1::date + $2::int) as renewals_due`,
@@ -350,9 +351,11 @@ router.get('/clients', admin, h(async (req, res) => {
     status: z.enum([...STATUSES, 'all']).optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
     followup: z.enum(['1']).optional(),
+    intake: z.enum(['pending', 'completed', 'needs_review', 'needs_update']).optional(),
   }), req.query)
   const params = []
   const conds = ['c.archived_at is null']
+  if (q.intake) { params.push(q.intake); conds.push(`c.intake_status = ${params.length}`) }
   if (q.followup) { params.push(todayCR()); conds.push(`c.next_followup_on <= $${params.length}::date`) }
   if (q.status && q.status !== 'all') { params.push(q.status); conds.push(`c.status = $${params.length}`) }
   if (q.search) {
@@ -491,6 +494,9 @@ router.put('/settings', admin, h(async (req, res) => {
     renewalNoticeDays: z.number().int().min(0).max(30).optional(),
     holdDays: z.number().int().min(0, 'Mínimo 0 días').max(60, 'Máximo 60 días').optional(),
     absentConsumesCredit: z.boolean().optional(),
+    intakeRequired: z.boolean().optional(),
+    sinpeNumber: z.string().trim().max(30).optional(),
+    sinpeName: z.string().trim().max(120).optional(),
     lateCancelConsumesCredit: z.boolean().optional(),
     monthlyPackagesGoal: z.number().int().min(0).max(1000).optional(),
     savingsGoalMonthCents: z.number().int().min(0).optional(),

@@ -380,6 +380,26 @@ function PromptAction({ title, label, type = 'text', needReason = true, confirm,
   )
 }
 
+/** Enlace de BAC Compra Click asociado a mano a la orden; la clienta lo ve en su pantalla de pago. */
+function PaymentLink({ pkg, onSaved }) {
+  const [value, setValue] = useState(pkg.paymentLink || '')
+  const save = useMutation({ mutationFn: () => api.put(`/admin/packages/${pkg.id}/payment-link`, { paymentLink: value.trim() }), onSuccess: onSaved })
+  return (
+    <div className="rounded-3xl border border-line bg-surface p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-sm font-semibold text-ink">Pago con tarjeta (Compra Click)</p>
+        {pkg.reference && <p className="tnum text-[13px] text-ink-3">Referencia {pkg.reference}</p>}
+      </div>
+      <p className="mt-1 text-[13px] text-ink-3">Pega aquí el enlace de pago creado en BAC para esta orden. Volver del enlace no confirma el cobro: verifícalo en BAC y registra el pago.</p>
+      <div className="mt-3 flex gap-2">
+        <Input aria-label="Enlace de Compra Click" inputMode="url" value={value} onChange={(e) => { setValue(e.target.value); save.reset() }} placeholder="https://…" className="!py-2" />
+        <Button size="sm" variant="secondary" loading={save.isPending} disabled={value.trim() === (pkg.paymentLink || '')} onClick={() => save.mutate()}>Guardar</Button>
+      </div>
+      {save.error && <p className="mt-1.5 text-[13px] font-medium text-terracotta" role="alert">{save.error.message}</p>}
+    </div>
+  )
+}
+
 const DEFAULT_REMINDER = (pkg) => `Hola ${firstName(pkg.fullName)}, te escribo de Pilates by Riven. Tu ${pkg.name.toLowerCase()} tiene un saldo pendiente de ${fmtMoney(pkg.balanceCents, pkg.currency)}${pkg.holdUntil ? `. Te guardo el cupo hasta el ${fmtDate(pkg.holdUntil, { day: 'numeric', month: 'long' })}` : ''}. ¡Gracias!`
 
 export function PackageSheet({ packageId, onClose }) {
@@ -440,6 +460,8 @@ export function PackageSheet({ packageId, onClose }) {
             </div>
 
             <Card className="p-4"><Credits pkg={pkg} /></Card>
+
+            {pkg.status !== 'cancelled' && pkg.balanceCents > 0 && <PaymentLink pkg={pkg} onSaved={() => done('Enlace guardado')} />}
 
             {(pkg.exceptionReason || pkg.extensionReason || pkg.cancelReason) && (
               <div className="space-y-1 rounded-2xl bg-sunken px-4 py-3 text-[13px] text-ink-2">
@@ -508,6 +530,7 @@ export function PackageSheet({ packageId, onClose }) {
                           <p className={cx('display tnum text-xl', y.kind === 'refund' ? 'text-terracotta' : 'text-ink')}>{fmtMoney(y.kind === 'refund' ? -y.amountCents : y.amountCents, y.currency)}</p>
                           <Badge tone={y.kind === 'refund' ? 'terracotta' : PAYMENT_STATUS[y.status].tone}>{y.kind === 'refund' ? 'Reembolso' : PAYMENT_STATUS[y.status].label}</Badge>
                           <p className="tnum ml-auto text-[13px] text-ink-3">{METHOD[y.method]} · {y.receivedOn && shortDate(y.receivedOn)}</p>
+                          {y.hasProof && <button type="button" className="text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => api.openFile(`/admin/payments/${y.id}/proof`).catch(toast.error)}>Ver comprobante</button>}
                         </div>
                         {(y.reference || y.note || y.rejectReason || y.fxRate) && (
                           <p className="mt-1 text-[13px] text-ink-3">

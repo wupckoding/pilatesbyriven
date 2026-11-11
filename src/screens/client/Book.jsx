@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { CalendarOff, Check } from 'lucide-react'
 import { api } from '../../lib/api'
@@ -37,6 +38,7 @@ function SessionRow({ session, onPick }) {
 
 export default function Book() {
   const toast = useToast()
+  const navigate = useNavigate()
   const refresh = useRefreshMine()
   const today = todayCR()
   const to = addDays(today, DAYS_AHEAD - 1)
@@ -68,7 +70,10 @@ export default function Book() {
     },
     onError: async (err, { session }) => {
       // Alguien tomó el último lugar mientras confirmaba: se ofrece la lista de espera.
-      if (err.code === 'SESSION_FULL') {
+      if (err.code === 'INTAKE_REQUIRED') {
+        toast.error(err)
+        navigate('/admision')
+      } else if (err.code === 'SESSION_FULL') {
         await refresh()
         setPicked({ ...session, spotsLeft: 0, lostSpot: true })
       } else {

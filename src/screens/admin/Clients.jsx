@@ -25,12 +25,13 @@ export default function Clients() {
   const navigate = useNavigate()
   const [params, setParams] = useSearchParams()
   const followup = params.get('seguimiento') === '1'
+  const intake = INTAKE[params.get('admision')] ? params.get('admision') : undefined
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [creating, setCreating] = useState(false)
   const term = useDebounced(search.trim())
 
-  const query = { search: term, status, followup: followup ? '1' : undefined }
+  const query = { search: term, status, followup: followup ? '1' : undefined, intake }
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['clients', query],
     queryFn: () => api.get('/admin/clients', query),
@@ -59,6 +60,11 @@ export default function Clients() {
           />
         </div>
         <Segmented label="Estado" options={FILTERS} value={status} onChange={setStatus} />
+        {intake && (
+          <button type="button" onClick={() => setParams({}, { replace: true })} className="inline-flex items-center gap-1.5 rounded-full bg-honey-soft px-3 py-1.5 text-[13px] font-semibold text-honey">
+            {INTAKE[intake].label} <X className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        )}
         {followup && (
           <button type="button" onClick={() => setParams({}, { replace: true })} className="inline-flex items-center gap-1.5 rounded-full bg-honey-soft px-3 py-1.5 text-[13px] font-semibold text-honey">
             Con seguimiento para hoy o vencido <X className="h-3.5 w-3.5" aria-hidden="true" />

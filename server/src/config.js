@@ -17,7 +17,15 @@ if (!jwtSecret || jwtSecret.length < 32) {
   throw new Error('JWT_SECRET ausente o demasiado corto (mínimo 32 caracteres). Ver server/.env.example')
 }
 
+// Llave de cifrado de las respuestas clínicas (32 bytes en base64). Obligatoria fuera de pruebas.
+const rawIntakeKey = process.env.INTAKE_KEY || (isTest ? Buffer.alloc(32, 7).toString('base64') : '')
+const intakeKey = rawIntakeKey ? Buffer.from(rawIntakeKey, 'base64') : null
+if (intakeKey && intakeKey.length !== 32) throw new Error('INTAKE_KEY debe ser de 32 bytes en base64')
+if (isProd && !intakeKey) throw new Error('Falta INTAKE_KEY en producción. Ver server/.env.example')
+
 export const config = {
+  intakeKey,
+  uploadsDir: process.env.UPLOADS_DIR || join(root, 'uploads'),
   env,
   isTest,
   isProd,

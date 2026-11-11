@@ -8,6 +8,7 @@ import { SESSION_SELECT } from '../services/sessions.js'
 import { createBooking, cancelOwnBooking } from '../services/bookings.js'
 import { getSettings } from '../services/settings.js'
 import { listPackages } from '../services/packages.js'
+import { intakeDone } from '../services/intake.js'
 
 // Rutas de la clienta autenticada: solo ve y modifica sus propios datos.
 const router = Router()
@@ -16,7 +17,7 @@ router.use(requireAuth)
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida')
 
 const ownClient = async (req) => {
-  const client = await db.one('select id from clients where user_id = $1 and archived_at is null', [req.user.id])
+  const client = await db.one('select id, intake_status from clients where user_id = $1 and archived_at is null', [req.user.id])
   if (!client) throw new HttpError(403, 'Tu cuenta no tiene una ficha de clienta', 'NO_CLIENT')
   return client
 }
@@ -79,7 +80,7 @@ router.get('/packages', h(async (req, res) => {
     id: p.id, name: p.name, kind: p.kind, status: p.status, startsOn: p.startsOn, expiresOn: p.expiresOn,
     sessionsTotal: p.sessionsTotal, used: p.used, reserved: p.reserved, available: p.available,
     priceCents: p.priceCents, currency: p.currency, paidCents: p.paidCents, balanceCents: p.balanceCents,
-    toVerifyCents: p.toVerifyCents,
+    toVerifyCents: p.toVerifyCents, holdUntil: p.holdUntil,
   }))
   res.json({ packages })
 }))
@@ -90,6 +91,11 @@ router.post('/bookings', h(async (req, res) => {
     joinWaitlist: z.boolean().optional(),
   }), req.body)
   const client = await ownClient(req)
+  // El paso de admisión es obligatorio; lo que la clienta responda en él no bloquea la reserva.
+  const settings = await getSettings()
+  if (settings.intakeRequired && !intakeDone(client.intakeStatus)) {
+    throw new HttpError(409, 'Completa tu formulario de admisión antes de reservar', 'INTAKE_REQUIRED')
+  }
   const { booking, created } = await createBooking({
     sessionId: body.sessionId, clientId: client.id, actor: req.user, joinWaitlist: !!body.joinWaitlist,
   })

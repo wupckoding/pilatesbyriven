@@ -1,11 +1,13 @@
 import { config } from './config.js'
-import { pool } from './db.js'
+import { db, pool } from './db.js'
+import { flagOutdated } from './services/intake.js'
 import { migrate } from './migrate.js'
 import { createApp } from './app.js'
 import { generateSessions } from './services/sessions.js'
 
 await migrate()
 await generateSessions()
+await flagOutdated(db)
 // Mantiene siempre 8 semanas de agenda por delante.
 const timer = setInterval(
   () => generateSessions().catch((err) => console.error('generateSessions', err)),

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarCheck, ChevronRight, ClipboardCheck, Hourglass, PhoneCall, Receipt, RefreshCw, Sparkles, TimerOff, Wallet } from 'lucide-react'
+import { ArrowRight, CalendarCheck, ChevronRight, ClipboardCheck, ClipboardList, Hourglass, PhoneCall, Receipt, RefreshCw, Sparkles, TimerOff, Wallet } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { MODALITY, capitalize, firstName, fmtDate, fmtMoney, fmtTime, greeting } from '../../lib/format'
@@ -144,7 +144,8 @@ export default function AdminHome() {
       {isAdmin && counts && (
         <section>
           <SectionTitle>Pendientes</SectionTitle>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Stat label="Admisión" value={counts.intakeToReview} hint="Por revisar en privado" to="/clientas?admision=needs_review" icon={ClipboardList} tone={counts.intakeToReview ? 'alert' : 'default'} />
             <Stat label="Pagos" value={counts.paymentsToVerify} hint="Por verificar" to="/paquetes?vista=payments" icon={Receipt} tone={counts.paymentsToVerify ? 'alert' : 'default'} />
             <Stat label="Renovaciones" value={counts.renewalsDue} hint="Paquetes por vencer" to="/paquetes?vista=expiring" icon={RefreshCw} />
             <Stat label="Retenciones" value={counts.holdsExpired} hint="Vencidas sin pago" to="/paquetes?vista=due" icon={TimerOff} tone={counts.holdsExpired ? 'alert' : 'default'} />

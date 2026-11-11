@@ -10,6 +10,8 @@ import authRoutes from './routes/auth.js'
 import clientRoutes from './routes/client.js'
 import adminRoutes from './routes/admin.js'
 import commerceRoutes from './routes/commerce.js'
+import { clientIntake, adminIntake } from './routes/intake.js'
+import { clientOrders, adminOrders } from './routes/orders.js'
 
 export function createApp() {
   const app = express()
@@ -19,6 +21,8 @@ export function createApp() {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'same-site' } }))
   // Solo los orígenes configurados pueden llamar a la API desde un navegador.
   app.use(cors({ origin: config.corsOrigins.length ? config.corsOrigins : false }))
+  // Solo la subida de comprobantes acepta cuerpos grandes; el resto de la API queda en 100 kb.
+  app.use('/api/orders/:id/proof', express.json({ limit: '11mb' }))
   app.use(express.json({ limit: '100kb' }))
 
   const limiter = (max, windowMs) => rateLimit({
@@ -38,6 +42,10 @@ export function createApp() {
   app.use('/api/auth', authRoutes)
   app.use('/api/admin', adminRoutes)
   app.use('/api/admin', commerceRoutes)
+  app.use('/api/admin', adminIntake)
+  app.use('/api/admin', adminOrders)
+  app.use('/api', clientIntake)
+  app.use('/api', clientOrders)
   app.use('/api', clientRoutes)
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Ruta no encontrada', 'NOT_FOUND')))
 

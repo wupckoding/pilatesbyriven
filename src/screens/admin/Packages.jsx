@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Download, PackageOpen, Pencil, Plus, Receipt, Search } from 'lucide-react'
+import { Download, PackageOpen, Paperclip, Pencil, Plus, Receipt, Search } from 'lucide-react'
 import { api } from '../../lib/api'
 import { METHOD, PAYMENT_STATUS, PRODUCT_KIND, addDays, fmtDate, fmtMoney, monthRange, parseMoney, todayCR, weekStart } from '../../lib/format'
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, Segmented, Select, SkeletonList, cx } from '../../ui'
@@ -155,6 +155,7 @@ function PaymentsList({ onOpenPackage }) {
                       {y.status === 'to_verify' && !refund
                         ? <Button size="sm" loading={verify.isPending && verify.variables === y.id} onClick={() => verify.mutate(y.id)}>Verificar</Button>
                         : <Badge tone={state.tone}>{state.label}</Badge>}
+                      {y.hasProof && <IconButton icon={Paperclip} label="Ver comprobante" onClick={() => api.openFile(`/admin/payments/${y.id}/proof`).catch(toast.error)} />}
                       {y.packageId && <button type="button" className="text-[13px] font-semibold text-clay-deep lg:hidden" onClick={() => onOpenPackage(y.packageId)}>Ver</button>}
                     </div>
                   </div>
@@ -167,7 +168,7 @@ function PaymentsList({ onOpenPackage }) {
     </div>
   )
 }
-const COLS = 'lg:grid-cols-[minmax(0,1.6fr)_120px_minmax(0,1.3fr)_minmax(0,1.3fr)_130px_120px] lg:items-center lg:gap-4'
+const COLS = 'lg:grid-cols-[minmax(0,1.6fr)_120px_minmax(0,1.3fr)_minmax(0,1.3fr)_130px_160px] lg:items-center lg:gap-4'
 
 // ─── Catálogo ────────────────────────────────────────────
 function ProductForm({ product, onClose }) {

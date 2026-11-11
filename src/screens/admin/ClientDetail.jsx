@@ -8,6 +8,7 @@ import { ATTENDANCE, BOOKING_STATUS, CLIENT_STATUS, INTAKE, MODALITY, PACKAGE_ST
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, SectionTitle, Skeleton } from '../../ui'
 import ClientForm from './ClientForm'
 import SessionSheet from './SessionSheet'
+import IntakeAdmin from './IntakeAdmin'
 
 function BookingLine({ booking, onOpen }) {
   const state = booking.attendance ? ATTENDANCE[booking.attendance] : booking.sessionStatus === 'cancelled'
@@ -144,6 +145,10 @@ export default function ClientDetail() {
         </div>
 
         <div className="space-y-8">
+          <section>
+            <SectionTitle>Admisión</SectionTitle>
+            <IntakeAdmin client={client} />
+          </section>
           <section>
             <SectionTitle>Contacto</SectionTitle>
             <Card as="dl" className="divide-y divide-line">

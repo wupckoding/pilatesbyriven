@@ -8,13 +8,15 @@ import { useToast } from '../../ui/Toast'
 import AccountActions from '../Account'
 
 const NUMBERS = ['cancelWindowHours', 'renewalNoticeDays', 'holdDays', 'monthlyPackagesGoal']
-const TOGGLES = ['absentConsumesCredit', 'lateCancelConsumesCredit']
+const TOGGLES = ['absentConsumesCredit', 'lateCancelConsumesCredit', 'intakeRequired']
+const TEXTS = ['sinpeNumber', 'sinpeName']
 const MONEY = ['savingsGoalMonthCents', 'savingsGoalTotalCents']
 
 const toForm = (s) => ({
   ...Object.fromEntries(NUMBERS.map((k) => [k, String(s[k])])),
   ...Object.fromEntries(TOGGLES.map((k) => [k, !!s[k]])),
   ...Object.fromEntries(MONEY.map((k) => [k, String(s[k] / 100)])),
+  ...Object.fromEntries(TEXTS.map((k) => [k, s[k] || ''])),
 })
 
 const Toggle = ({ checked, onChange, title, text }) => (
@@ -39,6 +41,7 @@ function Policies() {
       const body = {}
       for (const k of NUMBERS) body[k] = Number(form[k])
       for (const k of TOGGLES) body[k] = form[k]
+      for (const k of TEXTS) body[k] = form[k].trim()
       for (const k of MONEY) {
         const cents = parseMoney(form[k])
         if (cents === null) throw new Error('Revisa las metas de ahorro: escribe un monto válido')
@@ -79,6 +82,21 @@ function Policies() {
         <Card className="grid gap-4 p-5 sm:grid-cols-2 sm:p-6">
           <Field label="Retener el cupo sin pago (días)" hint="Fecha límite sugerida al crear una renovación.">{num('holdDays', { min: 0, max: 60 })}</Field>
           <Field label="Avisar antes del vencimiento (días)" hint="Define qué paquetes aparecen en «Por vencer».">{num('renewalNoticeDays', { min: 0, max: 30 })}</Field>
+        </Card>
+      </section>
+
+      <section>
+        <SectionTitle>Admisión y pagos de clientas</SectionTitle>
+        <Card className="space-y-4 p-5 sm:p-6">
+          <Toggle checked={form.intakeRequired} onChange={(e) => setForm({ ...form, intakeRequired: e.target.checked })} title="Exigir el formulario de admisión antes de reservar o comprar" text="Lo que la clienta responda no bloquea la reserva: solo se exige haber pasado por el paso." />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="SINPE Móvil del estudio" hint="Lo ven las clientas al pagar.">
+              <Input inputMode="tel" value={form.sinpeNumber} onChange={(e) => setForm({ ...form, sinpeNumber: e.target.value })} placeholder="8888 8888" maxLength={30} />
+            </Field>
+            <Field label="A nombre de">
+              <Input value={form.sinpeName} onChange={(e) => setForm({ ...form, sinpeName: e.target.value })} maxLength={120} />
+            </Field>
+          </div>
         </Card>
       </section>
 

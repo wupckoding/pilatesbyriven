@@ -72,8 +72,26 @@ async function download(path, params, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+/** Abre un archivo protegido (comprobante) en una pestaña nueva, con la sesión actual. */
+async function openFile(path) {
+  let res
+  try {
+    res = await fetch(`${BASE}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+  } catch {
+    throw new ApiError('No hay conexión con el servidor. Revisa tu internet e inténtalo de nuevo')
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new ApiError(data.error || 'No se pudo abrir el archivo', { status: res.status, code: data.code, data })
+  }
+  const url = URL.createObjectURL(await res.blob())
+  window.open(url, '_blank', 'noopener')
+  setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}
+
 export const api = {
   download,
+  openFile,
   get: (path, params) => request('GET', path + qs(params)),
   post: (path, body = {}) => request('POST', path, body),
   put: (path, body = {}) => request('PUT', path, body),

@@ -58,6 +58,8 @@ before(async () => {
   const login = await call('POST', '/api/auth/login', { body: { email: 'admin@test.local', password: 'admin-clave-segura' } })
   adminToken = login.data.token
   assert.ok(adminToken)
+  // El paso de admisión se prueba en intake.test.js; aquí se desactiva para probar reservas.
+  await call('PUT', '/api/admin/settings', { token: adminToken, body: { intakeRequired: false } })
 })
 
 after(async () => {

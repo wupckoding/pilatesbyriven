@@ -61,6 +61,7 @@ before(async () => {
   server = createApp().listen(0)
   base = `http://127.0.0.1:${server.address().port}`
   admin = ok(await call('POST', '/api/auth/login', { token: null, body: { email: 'admin@pagos.local', password: 'admin-clave-segura' } })).token
+  ok(await call('PUT', '/api/admin/settings', { body: { intakeRequired: false } }))
 })
 
 after(async () => {

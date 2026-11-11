@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Button, Field, Input, Logo, Segmented } from '../ui'
@@ -33,6 +34,7 @@ export function PrivacyNotice() {
 
 export default function AuthScreen() {
   const { login, register } = useAuth()
+  const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({ fullName: '', email: '', whatsapp: '', password: '', acceptPrivacy: false })
   const [showPassword, setShowPassword] = useState(false)
@@ -53,7 +55,11 @@ export default function AuthScreen() {
     setBusy(true)
     setError(null)
     try {
-      if (isRegister) await register(form)
+      if (isRegister) {
+        await register(form)
+        // Recién registrada: el formulario de admisión es lo primero que ve.
+        navigate('/admision', { replace: true })
+      }
       else await login(form.email, form.password)
     } catch (err) {
       setError(err)

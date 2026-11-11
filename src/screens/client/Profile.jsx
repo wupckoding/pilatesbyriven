@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ClipboardList } from 'lucide-react'
 import { useAuth } from '../../lib/auth'
 import { fmtPhone } from '../../lib/format'
 import { Avatar, Button, Card, Field, Input, SectionTitle } from '../../ui'
 import { useToast } from '../../ui/Toast'
 import AccountActions from '../Account'
+
+const INTAKE_HELP = {
+  pending: 'Pendiente: complétalo para poder reservar.',
+  completed: 'Completado. Puedes actualizarlo cuando quieras.',
+  needs_review: 'Completado. Puedes actualizarlo cuando quieras.',
+  needs_update: 'El estudio te pide actualizarlo.',
+}
 
 export default function Profile() {
   const { user, client, updateProfile } = useAuth()
@@ -84,6 +93,13 @@ export default function Profile() {
 
       <section>
         <SectionTitle>Cuenta</SectionTitle>
+        <Card as={Link} to="/admision" interactive className="mb-3 flex items-center gap-4 p-4">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-clay-soft text-clay-deep"><ClipboardList className="h-[18px] w-[18px]" aria-hidden="true" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-ink">Formulario de admisión</span>
+            <span className="block text-[13px] text-ink-3">{INTAKE_HELP[client?.intakeStatus] || INTAKE_HELP.pending}</span>
+          </span>
+        </Card>
         <AccountActions />
       </section>
     </div>

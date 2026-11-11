@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CalendarPlus, MapPin, MessageCircle } from 'lucide-react'
+import { ArrowRight, CalendarPlus, ClipboardList, MapPin, MessageCircle } from 'lucide-react'
 import { useAuth } from '../../lib/auth'
 import { BOOKING_STATUS, MODALITY, capitalize, dayLabel, firstName, fmtTime, greeting, waLink } from '../../lib/format'
 import { Badge, Button, Card, ErrorState, SectionTitle, Skeleton } from '../../ui'
@@ -12,6 +12,7 @@ export default function ClientHome() {
   const { user, client } = useAuth()
   const { data, isLoading, isError, error, refetch } = useMyBookings()
   const packages = useMyPackages()
+  const needsIntake = client && (client.intakeStatus === 'pending' || client.intakeStatus === 'needs_update')
   // El paquete vigente (o por pagar) que vence primero.
   const currentPackage = (packages.data?.packages || []).filter((p) => p.status !== 'expired').sort((a, b) => a.expiresOn.localeCompare(b.expiresOn))[0]
   const next = data?.upcoming[0]
@@ -25,6 +26,17 @@ export default function ClientHome() {
           {greeting()}, <em className="text-clay-deep">{firstName(user.fullName)}</em>
         </h1>
       </header>
+
+      {needsIntake && (
+        <Link to="/admision" className="flex items-center gap-4 rounded-3xl border border-honey/30 bg-honey-soft p-4 transition-colors hover:brightness-95 lg:col-span-2">
+          <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface text-honey"><ClipboardList className="h-5 w-5" aria-hidden="true" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-semibold text-ink">{client.intakeStatus === 'needs_update' ? 'Actualiza tu formulario de admisión' : 'Completa tu formulario de admisión'}</span>
+            <span className="block text-[13px] text-ink-2">Toma unos minutos y es necesario antes de reservar tu clase.</span>
+          </span>
+          <ArrowRight className="h-4 w-4 shrink-0 text-ink-2" aria-hidden="true" />
+        </Link>
+      )}
 
       {isLoading && <Skeleton className="h-56 lg:row-span-2 lg:h-[400px]" />}
       {isError && <div className="lg:row-span-2"><ErrorState error={error} onRetry={refetch} /></div>}

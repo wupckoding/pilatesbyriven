@@ -21,7 +21,8 @@ const NAV = {
   client: [
     { to: '/', label: 'Inicio', icon: Home },
     { to: '/reservar', label: 'Reservar', icon: CalendarPlus },
-    { to: '/clases', label: 'Mis clases', icon: CalendarHeart },
+    { to: '/clases', label: 'Mis clases', short: 'Clases', icon: CalendarHeart },
+    { to: '/paquetes', label: 'Paquetes', icon: WalletCards },
     { to: '/perfil', label: 'Perfil', icon: UserRound },
   ],
 }

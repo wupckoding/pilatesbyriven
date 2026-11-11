@@ -109,9 +109,12 @@ router.get('/packages/:id', h(async (req, res) => {
        from bookings b join class_sessions s on s.id = b.session_id
       where b.package_id = $1 and b.status <> 'rescheduled' order by s.starts_at`, [id])
   const payments = await db.query(
-    `select y.*, u.full_name as verified_by_name from payments y left join users u on u.id = y.verified_by
+    `select y.id, y.kind, y.amount_cents, y.currency, y.method, y.reference, y.status, y.received_on, y.note, y.reject_reason,
+            y.fx_rate, y.applied_cents, y.created_at, (y.proof_path is not null) as has_proof, u.full_name as verified_by_name
+       from payments y left join users u on u.id = y.verified_by
       where y.package_id = $1 order by y.created_at`, [id])
-  res.json({ package: withCode(pkg), bookings, payments })
+  const order = await db.one('select reference, payment_link, created_by_client from client_packages where id = $1', [id])
+  res.json({ package: { ...withCode(pkg), ...order }, bookings, payments })
 }))
 
 // Próximas clases de un grupo para proponer las fechas de un paquete.
@@ -245,6 +248,7 @@ router.patch('/packages/:id', h(async (req, res) => {
 const PAYMENT_SELECT = `
   select y.id, y.client_id, y.package_id, y.kind, y.related_payment_id, y.amount_cents, y.currency, y.method, y.reference,
          y.status, y.received_on, y.verified_at, y.note, y.reject_reason, y.fx_rate, y.applied_cents, y.created_at,
+         (y.proof_path is not null) as has_proof,
          c.full_name, c.student_number, c.whatsapp,
          p.name as package_name, p.currency as package_currency, p.starts_on as package_starts_on, g.name as group_name,
          v.full_name as verified_by_name,

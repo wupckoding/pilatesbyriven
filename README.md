@@ -29,6 +29,15 @@ npm run dev
 O login de administração vem de `ADMIN_EMAIL` / `ADMIN_PASSWORD` em `server/.env` (arquivo local, fora do git).
 Modelo de configuração: `server/.env.example`.
 
+## Dados sensíveis
+
+- As respostas de saúde do formulário de admissão são criptografadas (AES-256-GCM) com a chave `INTAKE_KEY` de `server/.env`.
+  **Guarde uma cópia dessa chave fora do servidor:** sem ela as respostas já salvas não podem ser lidas.
+- Comprovantes de pagamento ficam em `server/uploads/` (ou `UPLOADS_DIR`), fora da pasta pública, e só saem por rota de admin.
+- O texto da declaração (`CONSENT_TEXT` em `server/src/services/intake.js`) e o aviso de privacidade são rascunhos
+  **pendentes de revisão jurídica na Costa Rica**. Ao mudar o texto ou as perguntas, suba `CONSENT_VERSION` / `FORM_VERSION`:
+  quem já preencheu passa a "requer atualização".
+
 ## Testes
 
 ```bash
@@ -36,10 +45,11 @@ cd server
 npm test
 ```
 
-São 34 testes. Além de cadastro, permissões, último cupo e fuso horário, cobrem os casos de aceitação do documento
+São 45 testes. Além de cadastro, permissões, último cupo e fuso horário, cobrem os casos de aceitação do documento
 de requisitos: renovação com pagamento parcial confirmada uma única vez, quatro clases e uma reposição,
 ausência e cancelamento conforme a regra do pacote, e o fechamento de Caja do exemplo (US$2.400 cobrados,
-US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos).
+US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos). A Fase 3 testa o passo de admissão antes de reservar,
+que as respostas clínicas não vazam para ficha, agenda, Caja nem exportações, e o fluxo de ordem com comprovante.
 
 ## Estrutura
 
@@ -62,7 +72,7 @@ src/
 |---|---|---|
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
 | 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
-| 3 | Formulário clínico e consentimento, SINPE e Compra Click | Pendente |
+| 3 | Formulário de admissão e consentimento (respostas criptografadas, acesso só do admin com registro), compra pela clienta, comprovante SINPE, link de Compra Click por ordem | Feita |
 | 4 | Simulação de usuários, deploy na VPS (Docker, nginx, backup), app iPhone | Pendente |
 
 `deploy.sh` e `nginx.conf` são do app antigo (site estático) e serão refeitos na Fase 4.

@@ -11,6 +11,9 @@ export const SETTING_DEFAULTS = {
   savingsGoalMonthCents: 150000,   // US$1.500
   savingsGoalTotalCents: 1800000,  // US$18.000 (Lindora)
   studioWhatsapp: '+50685438378',
+  sinpeNumber: '',                 // número SINPE Móvil que ven las clientas al pagar
+  sinpeName: '',                   // a nombre de quién está el SINPE
+  intakeRequired: true,            // exigir el paso de admisión antes de reservar o comprar desde la app
 }
 
 export async function getSettings(q = db) {

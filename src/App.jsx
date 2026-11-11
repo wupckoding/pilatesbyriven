@@ -17,6 +17,8 @@ import ClientHome from './screens/client/Home'
 import Book from './screens/client/Book'
 import MyClasses from './screens/client/MyClasses'
 import Profile from './screens/client/Profile'
+import Intake from './screens/client/Intake'
+import MyPackages from './screens/client/Packages'
 
 function Splash() {
   return (
@@ -52,6 +54,8 @@ export default function App() {
           <Route path="/reservar" element={<Book />} />
           <Route path="/clases" element={<MyClasses />} />
           <Route path="/perfil" element={<Profile />} />
+          <Route path="/admision" element={<Intake />} />
+          <Route path="/paquetes" element={<MyPackages />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Shell>

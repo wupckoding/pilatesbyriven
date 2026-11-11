@@ -47,6 +47,7 @@ export function AuthProvider({ children }) {
       setToken(data.token)
     },
     deleteAccount: async (password) => { await api.delete('/auth/me', { password }); clear() },
+    refresh: async () => accept(await api.get('/auth/me')),
     logout: clear,
   }), [state, accept, clear])
 
