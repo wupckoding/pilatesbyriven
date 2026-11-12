@@ -13,7 +13,7 @@
     "seed": "node src/seed.js",
     "seed:demo": "node src/seed.js --demo",
     "simulate": "node sim/simulate.js",
-    "test": "node --test --test-concurrency=1 test/api.test.js test/commerce.test.js test/intake.test.js"
+    "test": "node --test --test-concurrency=1 test/api.test.js test/commerce.test.js test/intake.test.js test/verification.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -23,6 +23,7 @@
     "express-rate-limit": "^8.7.4",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "nodemailer": "^10.5.0",
     "pg": "^8.23.1",
     "zod": "^3.25.76"
   }

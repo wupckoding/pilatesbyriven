@@ -5,6 +5,7 @@ import { useAuth } from './lib/auth'
 import { Button, EmptyState, Logo } from './ui'
 import Shell from './app/Shell'
 import AuthScreen from './screens/AuthScreen'
+import VerifyEmail from './screens/VerifyEmail'
 import AdminHome from './screens/admin/Home'
 import Agenda from './screens/admin/Agenda'
 import Bookings from './screens/admin/Bookings'
@@ -45,6 +46,9 @@ export default function App() {
     )
   }
   if (status === 'guest') return <AuthScreen />
+
+  // Cuenta recién creada: primero confirma su correo.
+  if (user.role === 'client' && user.emailVerified === false) return <VerifyEmail />
 
   if (user.role === 'client') {
     return (

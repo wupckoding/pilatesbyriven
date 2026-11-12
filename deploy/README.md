@@ -130,7 +130,27 @@ cd /opt/pilates && mv app app.bad && mv app.prev app && app/deploy/compose.sh up
 Isso volta o código, não o banco. Se a versão nova tiver aplicado uma migração, restaure também
 o backup feito automaticamente antes da publicação.
 
-## 7. Antes de divulgar o endereço
+## 7. Confirmação de e-mail e entrada com Google
+
+As duas coisas ficam desligadas até serem configuradas no `/opt/pilates/.env`
+(modelo em [`.env.example`](.env.example)). Depois de editar: `./compose.sh up -d app`.
+
+**Confirmação de e-mail.** Com `SMTP_HOST` preenchido, quem se cadastra recebe um código de
+6 dígitos e só vira clienta (com ficha e número PR) depois de confirmá-lo. Cadastros não
+confirmados são apagados em 48 horas. Para testar o envio:
+
+```bash
+./compose.sh exec app node src/mail-test.js seu-email@exemplo.com
+```
+
+**Entrar com Google.** Em [console.cloud.google.com](https://console.cloud.google.com):
+APIs e serviços → Tela de consentimento OAuth (tipo Externo, publicar) → Credenciais →
+Criar credenciais → ID do cliente OAuth → Aplicativo da Web → em "Origens JavaScript autorizadas",
+`https://app.pilatesbyriven.com`. Copie o ID do cliente para `GOOGLE_CLIENT_ID`.
+O botão funciona no navegador; dentro do app de iPhone (WebView) o Google bloqueia esse fluxo
+e será preciso o plugin nativo — e a Apple exige oferecer também "Iniciar sesión con Apple".
+
+## 8. Antes de divulgar o endereço
 
 - [ ] Login de admin funciona e a senha inicial foi trocada.
 - [ ] `ADMIN_PASSWORD` removida do `/opt/pilates/.env` depois da troca (não é mais usada).

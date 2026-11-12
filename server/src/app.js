@@ -21,15 +21,18 @@ export function createApp() {
 
   // En producción el navegador solo puede cargar y llamar a este mismo servidor.
   // (En desarrollo Vite inyecta scripts en línea, por eso allí queda apagada.)
+  // El botón de Google carga su script y un marco desde accounts.google.com.
+  const google = config.googleClientId ? ['https://accounts.google.com/gsi/'] : []
   const contentSecurityPolicy = config.isProd && {
     useDefaults: false,
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // las animaciones escriben estilos en línea
+      scriptSrc: ["'self'", ...google],
+      frameSrc: google.length ? google : ["'none'"],
+      styleSrc: ["'self'", "'unsafe-inline'", ...google], // las animaciones escriben estilos en línea
       imgSrc: ["'self'", 'data:', 'blob:'],
       fontSrc: ["'self'", 'data:'], // Vite incrusta las fuentes pequeñas en el CSS
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", ...google],
       workerSrc: ["'self'"],
       manifestSrc: ["'self'"],
       objectSrc: ["'none'"],
@@ -38,7 +41,12 @@ export function createApp() {
       frameAncestors: ["'none'"],
     },
   }
-  app.use(helmet({ contentSecurityPolicy, crossOriginResourcePolicy: { policy: 'same-site' } }))
+  app.use(helmet({
+    contentSecurityPolicy,
+    crossOriginResourcePolicy: { policy: 'same-site' },
+    // La ventana emergente de Google necesita poder responder a la página que la abrió.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  }))
   // Solo los orígenes configurados pueden llamar a la API desde un navegador.
   app.use(cors({ origin: config.corsOrigins.length ? config.corsOrigins : false }))
   // Solo la subida de comprobantes acepta cuerpos grandes; el resto de la API queda en 100 kb.
@@ -57,6 +65,7 @@ export function createApp() {
   })
   app.use('/api', limiter(300, 60_000))
   app.use(['/api/auth/login', '/api/auth/register'], limiter(10, 15 * 60_000))
+  app.use(['/api/auth/google', '/api/auth/verify-email', '/api/auth/resend-code'], limiter(30, 15 * 60_000))
 
   // Lo consulta Docker para saber si la app está sana: responde 503 si no hay base de datos.
   app.get('/api/health', async (_req, res) => {

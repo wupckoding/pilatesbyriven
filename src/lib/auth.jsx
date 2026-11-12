@@ -43,10 +43,15 @@ export function AuthProvider({ children }) {
     register: async (form) => accept(await api.post('/auth/register', form)),
     updateProfile: async (patch) => accept(await api.patch('/auth/me', patch)),
     changePassword: async (currentPassword, newPassword) => {
-      const data = await api.post('/auth/change-password', { currentPassword, newPassword })
+      const data = await api.post('/auth/change-password', { currentPassword: currentPassword || undefined, newPassword })
       setToken(data.token)
+      setState((s) => ({ ...s, user: { ...s.user, hasPassword: true } }))
     },
-    deleteAccount: async (password) => { await api.delete('/auth/me', { password }); clear() },
+    google: async (credential, extra = {}) => accept(await api.post('/auth/google', { credential, ...extra })),
+    verifyEmail: async (code) => accept(await api.post('/auth/verify-email', { code })),
+    resendCode: () => api.post('/auth/resend-code'),
+    // confirmation: { password } o, en cuentas de Google sin contraseña, { confirm: 'ELIMINAR' }
+    deleteAccount: async (confirmation) => { await api.delete('/auth/me', confirmation); clear() },
     refresh: async () => accept(await api.get('/auth/me')),
     logout: clear,
   }), [state, accept, clear])

@@ -4,6 +4,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../lib/auth'
 import { Button, Field, Input, Logo, Segmented } from '../ui'
 import Sheet from '../ui/Sheet'
+import GoogleButton from './GoogleButton'
 
 const MODES = [
   { value: 'login', label: 'Iniciar sesión' },
@@ -32,8 +33,107 @@ export function PrivacyNotice() {
   )
 }
 
+/** Marco común de las pantallas de acceso: panel de marca en computadora, logo arriba en el celular. */
+export function AuthLayout({ children }) {
+  return (
+    <div className="flex h-full bg-canvas">
+      <div className="grain relative hidden w-[46%] flex-col justify-between overflow-hidden bg-espresso p-14 text-white lg:flex">
+        <Logo tone="white" size="md" className="items-start" />
+        <div>
+          <p className="display text-[64px] leading-[0.98]">
+            Tu práctica,<br /><em className="text-clay">a tu ritmo.</em>
+          </p>
+          <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-white/70">
+            Reserva tus clases, consulta tu agenda y lleva el control de tu paquete desde un solo lugar.
+          </p>
+        </div>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/50">Strength · Control · Elegance</p>
+      </div>
+
+      <div className="scroll-area flex flex-1 flex-col">
+        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6 py-10">
+          <div className="mb-10 flex flex-col items-center lg:hidden">
+            <Logo size="lg" />
+            <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.3em] text-ink-3">Strength · Control · Elegance</p>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function PrivacyCheck({ checked, onChange, onOpen, error }) {
+  return (
+    <div>
+      <label className="flex cursor-pointer items-start gap-3 text-sm leading-snug text-ink-2">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={onChange}
+          className="mt-0.5 h-5 w-5 shrink-0 rounded-md border-line accent-[#8A6548]"
+        />
+        <span>
+          Acepto el{' '}
+          <button type="button" onClick={onOpen} className="font-semibold text-clay-deep underline underline-offset-2">
+            aviso de privacidad
+          </button>
+          .
+        </span>
+      </label>
+      {error && <p className="mt-1.5 text-[13px] font-medium text-terracotta" role="alert">{error}</p>}
+    </div>
+  )
+}
+
+/** Primera vez con Google: faltan el WhatsApp y aceptar el aviso de privacidad. */
+function GoogleDetails({ pending, onCancel, onOpenPrivacy }) {
+  const { google } = useAuth()
+  const navigate = useNavigate()
+  const [whatsapp, setWhatsapp] = useState('')
+  const [accept, setAccept] = useState(false)
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const fieldError = (name) => (error?.data?.field === name ? error.message : undefined)
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (busy) return
+    if (!accept) return setError({ message: 'Debes aceptar el aviso de privacidad', data: { field: 'acceptPrivacy' } })
+    setBusy(true)
+    setError(null)
+    try {
+      await google(pending.credential, { whatsapp, acceptPrivacy: true })
+      navigate('/admision', { replace: true })
+    } catch (err) {
+      setError(err)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <>
+      <h1 className="display text-[38px] text-ink">Un último paso</h1>
+      <p className="mt-2 text-[15px] text-ink-2">
+        Vas a crear tu cuenta con <span className="font-semibold text-ink">{pending.email}</span>. Solo nos falta tu WhatsApp.
+      </p>
+      <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
+        <Field label="WhatsApp" hint="Si no es de Costa Rica, incluye el código de país (+1, +34…)." error={fieldError('whatsapp')}>
+          <Input type="tel" value={whatsapp} onChange={(e) => { setWhatsapp(e.target.value); setError(null) }} autoComplete="tel" inputMode="tel" placeholder="8888 7777" autoFocus required />
+        </Field>
+        <PrivacyCheck checked={accept} onChange={(e) => { setAccept(e.target.checked); setError(null) }} onOpen={onOpenPrivacy} error={fieldError('acceptPrivacy')} />
+        {error && !error.data?.field && (
+          <p className="rounded-2xl bg-terracotta-soft px-4 py-3 text-sm font-medium text-terracotta" role="alert">{error.message}</p>
+        )}
+        <Button type="submit" size="lg" block loading={busy} className="!mt-6">Crear cuenta</Button>
+        <Button type="button" variant="ghost" block disabled={busy} onClick={onCancel}>Usar otra cuenta</Button>
+      </form>
+    </>
+  )
+}
+
 export default function AuthScreen() {
-  const { login, register } = useAuth()
+  const { login, register, google } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({ fullName: '', email: '', whatsapp: '', password: '', acceptPrivacy: false })
@@ -41,6 +141,17 @@ export default function AuthScreen() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
+  const [googlePending, setGooglePending] = useState(null) // { credential, email } mientras faltan datos
+
+  const onGoogle = async (credential) => {
+    setError(null)
+    try {
+      await google(credential)
+    } catch (err) {
+      if (err.code === 'SIGNUP_DETAILS_REQUIRED') setGooglePending({ credential, email: err.data?.email })
+      else setError(err)
+    }
+  }
 
   const set = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
@@ -67,29 +178,19 @@ export default function AuthScreen() {
     }
   }
 
+  if (googlePending) {
+    return (
+      <AuthLayout>
+        <GoogleDetails pending={googlePending} onCancel={() => setGooglePending(null)} onOpenPrivacy={() => setPrivacyOpen(true)} />
+        <Sheet open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Aviso de privacidad" size="sm">
+          <PrivacyNotice />
+        </Sheet>
+      </AuthLayout>
+    )
+  }
+
   return (
-    <div className="flex h-full bg-canvas">
-      {/* Panel de marca (computadora) */}
-      <div className="grain relative hidden w-[46%] flex-col justify-between overflow-hidden bg-espresso p-14 text-white lg:flex">
-        <Logo tone="white" size="md" className="items-start" />
-        <div>
-          <p className="display text-[64px] leading-[0.98]">
-            Tu práctica,<br /><em className="text-clay">a tu ritmo.</em>
-          </p>
-          <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-white/70">
-            Reserva tus clases, consulta tu agenda y lleva el control de tu paquete desde un solo lugar.
-          </p>
-        </div>
-        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/50">Strength · Control · Elegance</p>
-      </div>
-
-      <div className="scroll-area flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6 py-10">
-          <div className="mb-10 flex flex-col items-center lg:hidden">
-            <Logo size="lg" />
-            <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.3em] text-ink-3">Strength · Control · Elegance</p>
-          </div>
-
+    <AuthLayout>
           <h1 className="display text-[38px] text-ink">{isRegister ? 'Crea tu cuenta' : 'Bienvenida de vuelta'}</h1>
           <p className="mt-2 text-[15px] text-ink-2">
             {isRegister ? 'Regístrate para reservar tu primera clase.' : 'Ingresa para ver tus clases y reservas.'}
@@ -170,17 +271,17 @@ export default function AuthScreen() {
             </Button>
           </form>
 
+          <GoogleButton onCredential={onGoogle} />
+
           {!isRegister && (
             <p className="mt-6 text-center text-sm text-ink-3">
               ¿Olvidaste tu contraseña? Escríbenos por WhatsApp y te ayudamos.
             </p>
           )}
-        </div>
-      </div>
 
       <Sheet open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Aviso de privacidad" size="sm">
         <PrivacyNotice />
       </Sheet>
-    </div>
+    </AuthLayout>
   )
 }
