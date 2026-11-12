@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publica a versão commitada (HEAD) na VPS. Roda na SUA máquina (Git Bash), não na VPS.
 #   deploy/publish.sh usuario@servidor
+#   SERVICES="db app" deploy/publish.sh usuario@servidor    (sem o proxy, antes de o DNS apontar)
 #
 # O que faz, nesta ordem:
 #   1. envia o código do último commit para /opt/pilates/app.new
@@ -24,7 +25,7 @@ git -C "$root" archive --format=tar.gz HEAD | ssh "$target" \
   "set -e; test -f '$REMOTE_DIR/.env' || { echo 'Falta $REMOTE_DIR/.env (veja deploy/.env.example)' >&2; exit 1; }
    rm -rf '$REMOTE_DIR/app.new'; mkdir -p '$REMOTE_DIR/app.new'; tar -xzf - -C '$REMOTE_DIR/app.new'"
 
-ssh "$target" "REMOTE_DIR='$REMOTE_DIR' REV='$rev' bash -s" <<'REMOTE'
+ssh "$target" "REMOTE_DIR='$REMOTE_DIR' REV='$rev' SERVICES='${SERVICES:-}' bash -s" <<'REMOTE'
 set -euo pipefail
 cd "$REMOTE_DIR"
 chmod +x app.new/deploy/*.sh
@@ -43,7 +44,8 @@ mv app.new app
 echo "$REV" > app/REVISION
 
 echo "== subindo =="
-app/deploy/compose.sh up -d --remove-orphans
+# SERVICES limita o que sobe (ex.: "db app" enquanto o DNS do domínio ainda não aponta para cá).
+app/deploy/compose.sh up -d --remove-orphans $SERVICES
 
 echo "== esperando a aplicação responder =="
 for i in $(seq 1 30); do
