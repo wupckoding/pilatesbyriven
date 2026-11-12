@@ -23,12 +23,12 @@ up_file="$BACKUP_DIR/uploads-$stamp.tar.gz"
 # Se algo falhar no meio, não deixa um arquivo pela metade com cara de backup bom.
 trap 'rm -f "$db_file.tmp" "$up_file.tmp"' EXIT
 
-"$here/compose.sh" exec -T db pg_dump -U riven -d pilates --format=custom > "$db_file.tmp"
+"$here/compose.sh" exec -T db pg_dump -U riven -d pilates --format=custom < /dev/null > "$db_file.tmp"
 # Confere que o arquivo é um dump legível antes de aceitá-lo.
 "$here/compose.sh" exec -T db pg_restore --list < "$db_file.tmp" > /dev/null
 mv "$db_file.tmp" "$db_file"
 
-"$here/compose.sh" exec -T app tar -czf - -C /data uploads > "$up_file.tmp"
+"$here/compose.sh" exec -T app tar -czf - -C /data uploads < /dev/null > "$up_file.tmp"
 mv "$up_file.tmp" "$up_file"
 
 find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'db-*.dump' -o -name 'uploads-*.tar.gz' \) -mtime "+$KEEP_DAYS" -delete

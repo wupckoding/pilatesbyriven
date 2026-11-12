@@ -18,11 +18,11 @@ read -r -p 'Digite "restaurar" para continuar: ' answer
 
 # Guarda o estado atual antes de apagar, por via das dúvidas.
 # (SKIP_BACKUP=1 pula este passo, para quando o banco atual está quebrado e nem o backup roda.)
-[ "${SKIP_BACKUP:-}" = "1" ] || "$here/backup.sh"
+[ "${SKIP_BACKUP:-}" = "1" ] || "$here/backup.sh" < /dev/null
 
-"$here/compose.sh" stop app
-"$here/compose.sh" exec -T db dropdb -U riven --if-exists --force pilates
-"$here/compose.sh" exec -T db createdb -U riven pilates
+"$here/compose.sh" stop app < /dev/null
+"$here/compose.sh" exec -T db dropdb -U riven --if-exists --force pilates < /dev/null
+"$here/compose.sh" exec -T db createdb -U riven pilates < /dev/null
 "$here/compose.sh" exec -T db pg_restore -U riven -d pilates --no-owner --exit-on-error < "$dump"
 
 if [ -n "$uploads" ]; then
@@ -30,5 +30,5 @@ if [ -n "$uploads" ]; then
     -c 'find /data/uploads -mindepth 1 -delete && tar -xzf - -C /data' < "$uploads"
 fi
 
-"$here/compose.sh" start app
+"$here/compose.sh" start app < /dev/null
 echo "Restaurado. Confira: $here/compose.sh ps"

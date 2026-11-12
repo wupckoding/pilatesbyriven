@@ -31,11 +31,11 @@ cd "$REMOTE_DIR"
 chmod +x app.new/deploy/*.sh
 
 echo "== construindo a imagem =="
-app.new/deploy/compose.sh build app
+app.new/deploy/compose.sh build app < /dev/null
 
-if [ -d app ] && app/deploy/compose.sh ps --status running --services 2>/dev/null | grep -qx db; then
+if [ -d app ] && app/deploy/compose.sh ps --status running --services < /dev/null 2>/dev/null | grep -qx db; then
   echo "== backup antes de trocar de versão =="
-  app/deploy/backup.sh
+  app/deploy/backup.sh < /dev/null
 fi
 
 rm -rf app.prev
@@ -45,11 +45,11 @@ echo "$REV" > app/REVISION
 
 echo "== subindo =="
 # SERVICES limita o que sobe (ex.: "db app" enquanto o DNS do domínio ainda não aponta para cá).
-app/deploy/compose.sh up -d --remove-orphans $SERVICES
+app/deploy/compose.sh up -d --remove-orphans $SERVICES < /dev/null
 
 echo "== esperando a aplicação responder =="
 for i in $(seq 1 30); do
-  if app/deploy/compose.sh exec -T app node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then
+  if app/deploy/compose.sh exec -T app node -e "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" < /dev/null 2>/dev/null; then
     echo "ok: versão $REV no ar"
     exit 0
   fi
