@@ -11,10 +11,14 @@ Tudo roda em Docker, em três serviços:
 Os dados ficam em volumes do Docker (`pilates_db-data`, `pilates_uploads`), fora das imagens:
 publicar uma versão nova não toca neles. As migrações do banco rodam sozinhas quando a `app` sobe.
 
-> **Estado:** estes arquivos foram escritos sem Docker na máquina de desenvolvimento.
-> A aplicação em modo produção foi testada localmente; a imagem, o compose, o Caddy e os scripts
-> de backup **ainda não rodaram de verdade**. A primeira publicação é o teste deles — faça-a antes
-> de divulgar o endereço, e faça um ensaio de restauração (seção 5) antes de ter dados reais.
+> **Estado (12/11/2026):** publicado na VPS `2.25.98.70` com `db` e `app` no ar; publicação,
+> backup, restauração (ensaio com marcador) e cron diário foram testados lá.
+> **O Caddy ainda não subiu**: falta o DNS do domínio apontar para a VPS. Quando apontar,
+> ajuste `DOMAIN` em `/opt/pilates/.env` e rode `deploy/publish.sh pilates-vps` (sem `SERVICES`).
+> Falta também criar a conta admin: preencha `ADMIN_EMAIL` / `ADMIN_PASSWORD` no `.env`,
+> rode `./compose.sh up -d app` e depois o `seed` (seção 3).
+>
+> Conferência rápida de um endereço publicado: `node e2e/smoke.mjs https://SEU-DOMINIO`.
 
 ## 1. O que é preciso
 
