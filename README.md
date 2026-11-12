@@ -98,6 +98,18 @@ src/
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
 | 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
 | 3 | Formulário de admissão e consentimento (respostas criptografadas, acesso só do admin com registro), compra pela clienta, comprovante SINPE, link de Compra Click por ordem | Feita |
-| 4 | Simulação de 1000 usuárias e testes de interface (feitos); deploy na VPS (Docker, nginx, backup) e app iPhone (pendentes) | Em andamento |
+| 4 | Simulação de 1000 usuárias e testes de interface (feitos); arquivos de deploy na VPS (escritos, ainda não rodados numa VPS); app iPhone (pendente) | Em andamento |
 
-`deploy.sh` e `nginx.conf` são do app antigo (site estático) e serão refeitos na Fase 4.
+## Publicação
+
+Docker com três serviços (Caddy com HTTPS automático, app, PostgreSQL), backup e restauração:
+o roteiro completo está em [deploy/README.md](deploy/README.md).
+
+Para conferir o app compilado em modo produção antes de publicar (política de segurança do navegador
+ativa, service worker instalado):
+
+```bash
+npm run build
+NODE_ENV=production PORT=3002 node server/src/index.js   # em outro terminal
+node e2e/prod-check.mjs
+```

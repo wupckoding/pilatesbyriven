@@ -1,0 +1,12 @@
+# O Caddy pede e renova sozinho o certificado HTTPS (Let's Encrypt) para o domínio.
+# Requisito: o DNS do domínio já aponta para o IP da VPS e as portas 80 e 443 estão abertas.
+{$DOMAIN} {
+	encode zstd gzip
+
+	# O maior envio aceito pela API é o comprovante de pagamento (11 MB em JSON).
+	request_body {
+		max_size 12MB
+	}
+
+	reverse_proxy app:3001
+}

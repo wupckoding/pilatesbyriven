@@ -1,0 +1,80 @@
+# Pilates by Riven — produção.
+# Três serviços: banco (db), aplicação (app) e proxy com HTTPS automático (caddy).
+# Só o proxy fica exposto à internet; banco e aplicação só se falam pela rede interna.
+#
+# Uso (na VPS):  ./compose.sh up -d --build      — ver deploy/README.md
+name: pilates
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: riven
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
+      POSTGRES_DB: pilates
+      TZ: America/Costa_Rica
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U riven -d pilates"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  app:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      TZ: America/Costa_Rica
+      DATABASE_URL: postgres://riven:${DB_PASSWORD}@db:5432/pilates
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      INTAKE_KEY: ${INTAKE_KEY:?defina INTAKE_KEY no .env}
+      CORS_ORIGIN: https://${DOMAIN:?defina DOMAIN no .env}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Riven}
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging: *logging
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging: *logging
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:

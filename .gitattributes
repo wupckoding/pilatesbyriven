@@ -1,0 +1,4 @@
+# Scripts e configs que rodam no Linux da VPS precisam de fim de linha LF, mesmo editados no Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+deploy/** text eol=lf
