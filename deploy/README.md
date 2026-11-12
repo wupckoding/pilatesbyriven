@@ -14,8 +14,8 @@ publicar uma versão nova não toca neles. As migrações do banco rodam sozinha
 > **Estado (12/11/2026):** no ar em `https://app.pilatesbyriven.com` (VPS `2.25.98.70`), com
 > certificado HTTPS emitido; publicação, backup, restauração (ensaio com marcador) e cron diário
 > foram testados lá. Para publicar uma versão nova: `deploy/publish.sh pilates-vps`.
-> Falta criar a conta admin: preencha `ADMIN_EMAIL` / `ADMIN_PASSWORD` no `.env`,
-> rode `./compose.sh up -d app` e depois o `seed` (seção 3).
+> A conta admin (`contacto@pilatesbyriven.com`) foi criada; a senha inicial está em
+> `ADMIN_PASSWORD` no `/opt/pilates/.env` até ser trocada no app.
 >
 > Conferência rápida de um endereço publicado: `node e2e/smoke.mjs https://SEU-DOMINIO`.
 
