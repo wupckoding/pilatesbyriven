@@ -19,10 +19,10 @@ export default function ClientHome() {
   const rest = data?.upcoming.slice(1, 4) || []
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 lg:mx-0 lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-8 lg:space-y-0">
+    <div className="stagger-in mx-auto max-w-2xl space-y-8 lg:mx-0 lg:grid lg:max-w-none lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-x-10 lg:gap-y-8 lg:space-y-0">
       <header className="lg:col-span-2">
         <p className="eyebrow tnum mb-2">{client?.studentCode}</p>
-        <h1 className="display text-[38px] text-ink sm:text-[46px]">
+        <h1 className="display text-[38px] text-ink [overflow-wrap:anywhere] sm:text-[46px]">
           {greeting()}, <em className="text-clay-deep">{firstName(user.fullName)}</em>
         </h1>
       </header>

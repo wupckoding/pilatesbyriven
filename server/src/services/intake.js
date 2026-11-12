@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { HttpError } from '../lib/http.js'
+import { HttpError, validBirthDate } from '../lib/http.js'
 import { encryptJson, decryptJson } from '../lib/crypto.js'
 import { audit } from '../lib/audit.js'
 
@@ -60,7 +60,7 @@ export const answersSchema = z.object({
 
 export const intakeBody = z.object({
   personal: z.object({
-    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento inválida').nullable().optional(),
+    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha de nacimiento inválida').nullable().optional().refine(validBirthDate, 'Revisa la fecha de nacimiento'),
     emergencyName: z.string().trim().max(120).optional().default(''),
     emergencyPhone: z.string().trim().max(40).optional().default(''),
   }).optional().default({}),

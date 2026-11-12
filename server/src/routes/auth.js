@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { hashPassword, verifyPassword } from '../lib/password.js'
 import { z } from 'zod'
 import { db, tx } from '../db.js'
-import { h, parse, HttpError } from '../lib/http.js'
+import { h, parse, HttpError, validBirthDate } from '../lib/http.js'
 import { normalizeWhatsapp } from '../lib/phone.js'
 import { audit } from '../lib/audit.js'
 import { formatStudentNumber } from '../lib/time.js'
@@ -211,7 +211,7 @@ router.patch('/me', requireAuth, h(async (req, res) => {
   const body = parse(z.object({
     fullName: z.string().trim().min(2, 'Escribe tu nombre completo').max(120).optional(),
     whatsapp: z.string().trim().optional(),
-    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida').nullable().optional(),
+    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida').nullable().optional().refine(validBirthDate, 'Revisa la fecha de nacimiento'),
     emergencyName: z.string().trim().max(120).optional(),
     emergencyPhone: z.string().trim().max(40).optional(),
   }), req.body)

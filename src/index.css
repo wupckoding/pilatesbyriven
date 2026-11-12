@@ -31,6 +31,21 @@
   /* 16px evita el zoom automático de iOS al enfocar un campo */
   input, select, textarea { font-size: 16px; }
 
+  /* Entradas: cada pantalla sube suave al abrirse y sus bloques llegan uno tras otro. */
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes pop-in { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: none; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); }
+    20%, 80% { transform: translateX(3px); }
+    30%, 50%, 70% { transform: translateX(-6px); }
+    40%, 60% { transform: translateX(6px); }
+  }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -40,6 +55,21 @@
 }
 
 @layer components {
+  .page-in { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .stagger-in > * { animation: rise-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .stagger-in > *:nth-child(2) { animation-delay: 0.07s; }
+  .stagger-in > *:nth-child(3) { animation-delay: 0.14s; }
+  .stagger-in > *:nth-child(4) { animation-delay: 0.21s; }
+  .stagger-in > *:nth-child(5) { animation-delay: 0.28s; }
+  .stagger-in > *:nth-child(6) { animation-delay: 0.35s; }
+  .stagger-in > *:nth-child(7) { animation-delay: 0.42s; }
+  .stagger-in > *:nth-child(n+8) { animation-delay: 0.49s; }
+  .success-check { animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .success-check path { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.45s 0.25s cubic-bezier(0.65, 0, 0.35, 1) forwards; }
+  .shake { animation: shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
+  /* Durante la apertura de marca, lo de abajo espera su turno. */
+  .intro-on .page-in, .intro-on .stagger-in > * { animation-play-state: paused; }
+
   .eyebrow {
     @apply text-[11px] font-semibold uppercase tracking-label text-ink-3;
   }

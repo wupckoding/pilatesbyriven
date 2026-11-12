@@ -10,8 +10,8 @@ export function ToastProvider({ children }) {
 
   const push = useCallback((type, message) => {
     const id = nextId.current++
-    setItems((list) => [...list.slice(-2), { id, type, message }])
-    setTimeout(() => setItems((list) => list.filter((t) => t.id !== id)), type === 'error' ? 5500 : 3200)
+    setItems([{ id, type, message }])
+    setTimeout(() => setItems((list) => list.filter((t) => t.id !== id)), type === 'error' ? 5000 : 2600)
   }, [])
 
   const toast = useMemo(() => ({

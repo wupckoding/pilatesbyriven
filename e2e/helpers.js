@@ -15,6 +15,10 @@ export const unique = () => `${Date.now().toString(36)}${(counter += 1)}`
  */
 export const test = base.extend({
   page: async ({ page }, use) => {
+    // La apertura de marca tiene su propia prueba (05-apertura); en las demás se omite para no esperar.
+    if (!test.info().title.includes('apertura')) {
+      await page.addInitScript(() => { try { sessionStorage.setItem('pbr_intro', '1') } catch { /* sin almacenamiento */ } })
+    }
     const problems = []
     page.on('pageerror', (err) => problems.push(`error de página: ${err.message}`))
     page.on('console', (msg) => {

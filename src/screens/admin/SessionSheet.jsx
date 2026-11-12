@@ -35,9 +35,10 @@ function AddClient({ sessionId, full, onDone }) {
   })
   const add = useMutation({
     mutationFn: (clientId) => api.post('/admin/bookings', { sessionId, clientId, joinWaitlist: full }),
-    onSuccess: async ({ booking }) => {
+    onSuccess: async ({ booking, created }) => {
       await refresh()
-      toast.success(booking.status === 'waitlisted' ? 'Agregada a la lista de espera' : 'Reserva confirmada')
+      if (created === false) toast.error('Esa clienta ya estaba en esta clase')
+      else toast.success(booking.status === 'waitlisted' ? 'Agregada a la lista de espera' : 'Reserva confirmada')
       onDone()
     },
     onError: toast.error,
@@ -210,10 +211,17 @@ export default function SessionSheet({ sessionId, onClose }) {
   const session = query.data?.session
   const bookings = query.data?.bookings || []
   const started = session ? new Date(session.startsAt) <= new Date() : false
+  // Asistencia de un toque: marca "Asistió" a todas las que aún no tienen marca.
+  const allAttended = useMutation({
+    mutationFn: () => Promise.all(unmarked.map((b) => api.patch(`/admin/bookings/${b.id}`, { attendance: 'attended' }))),
+    onSuccess: async () => { await refresh(); toast.success('Asistencia registrada') },
+    onError: async (err) => { await refresh(); toast.error(err) },
+  })
   const cancelled = session?.status === 'cancelled'
   const full = session ? session.taken >= session.capacity : false
   const roster = bookings.filter((b) => b.status !== 'waitlisted')
   const waitlist = bookings.filter((b) => b.status === 'waitlisted')
+  const unmarked = roster.filter((b) => (b.status === 'pending' || b.status === 'confirmed') && !b.attendance)
 
   return (
     <Sheet
@@ -242,7 +250,16 @@ export default function SessionSheet({ sessionId, onClose }) {
 
           {roster.length === 0 && waitlist.length === 0
             ? <EmptyState icon={UserPlus} title="Sin reservas todavía" text="Agrega una clienta o espera a que reserven desde la app." />
-            : <ul className="divide-y divide-line">{roster.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} sessionId={sessionId} />)}</ul>}
+            : (
+              <>
+                {started && !cancelled && unmarked.length > 1 && (
+                  <Button variant="secondary" block loading={allAttended.isPending} onClick={() => allAttended.mutate()}>
+                    Todas asistieron ({unmarked.length})
+                  </Button>
+                )}
+                <ul className="divide-y divide-line">{roster.map((b) => <BookingRow key={b.id} booking={b} started={started} isAdmin={isAdmin} sessionId={sessionId} />)}</ul>
+              </>
+            )}
 
           {waitlist.length > 0 && (
             <div>

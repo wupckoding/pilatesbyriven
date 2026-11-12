@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { CalendarOff, Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { BOOKING_STATUS, KIND, MODALITY, addDays, capitalize, dayLabel, fmtDate, fmtTime, todayCR } from '../../lib/format'
-import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, SkeletonList, cx } from '../../ui'
+import { Badge, Button, Card, EmptyState, ErrorState, PageHeader, SkeletonList, SuccessCheck, cx } from '../../ui'
 import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
 import { STATUS_HELP, useRefreshMine } from './shared'
@@ -31,7 +31,7 @@ function SessionRow({ session, onPick }) {
       </div>
       {mine
         ? <Badge tone={BOOKING_STATUS[mine.status].tone}><Check className="h-3 w-3" aria-hidden="true" />{BOOKING_STATUS[mine.status].label}</Badge>
-        : <Button size="sm" variant={full ? 'secondary' : 'primary'} onClick={onPick}>{full ? 'Lista de espera' : 'Reservar'}</Button>}
+        : <Button size="sm" variant={full ? 'secondary' : 'primary'} onClick={onPick}>{full ? 'A la lista' : 'Reservar'}</Button>}
     </Card>
   )
 }
@@ -59,7 +59,8 @@ export default function Book() {
     return map
   }, [data])
   const list = byDay[day] || []
-  const firstWithClasses = days.find((d) => byDay[d]?.length)
+  // La próxima fecha con clases después del día elegido (no una anterior).
+  const firstWithClasses = days.find((d) => d > day && byDay[d]?.length)
 
   const book = useMutation({
     mutationFn: ({ session, joinWaitlist }) => api.post('/bookings', { sessionId: session.id, joinWaitlist }),
@@ -127,7 +128,7 @@ export default function Book() {
         <EmptyState
           icon={CalendarOff}
           title="Sin clases este día"
-          text={firstWithClasses ? `La próxima fecha con horarios es ${fmtDate(firstWithClasses)}.` : 'Aún no hay horarios publicados. Escríbenos por WhatsApp.'}
+          text={firstWithClasses ? `La próxima fecha con horarios es ${fmtDate(firstWithClasses)}.` : 'No hay más horarios publicados por ahora. Escríbenos por WhatsApp.'}
           action={firstWithClasses && <Button variant="secondary" onClick={() => setDay(firstWithClasses)}>Ir a esa fecha</Button>}
         />
       )}
@@ -189,7 +190,7 @@ export default function Book() {
       >
         {result && (
           <div className="flex flex-col items-center py-4 text-center">
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sage-soft text-sage"><Check className="h-7 w-7" aria-hidden="true" /></span>
+            <SuccessCheck />
             <p className="display mt-5 text-[28px] text-ink">{capitalize(dayLabel(result.session.localDate))} · {fmtTime(result.session.localTime)}</p>
             <div className="mt-3"><Badge tone={BOOKING_STATUS[result.booking.status].tone}>{BOOKING_STATUS[result.booking.status].label}</Badge></div>
             <p className="mt-3 max-w-xs text-sm text-ink-2">{STATUS_HELP[result.booking.status]}</p>

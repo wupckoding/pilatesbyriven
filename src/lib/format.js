@@ -44,6 +44,7 @@ export const fmtDateTime = (iso) =>
 
 export const greeting = () => {
   const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hour12: false }).format(new Date()))
+  if (hour < 5) return 'Buenas noches' // de madrugada todavía es "noche"
   if (hour < 12) return 'Buenos días'
   if (hour < 18) return 'Buenas tardes'
   return 'Buenas noches'
@@ -51,8 +52,11 @@ export const greeting = () => {
 
 export const firstName = (fullName) => (fullName || '').trim().split(/\s+/)[0] || ''
 
+// Solo letras y números (un emoji partido a la mitad se ve como "��").
 export const initials = (fullName) =>
-  (fullName || '').trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('') || '·'
+  (fullName || '').trim().split(/\s+/)
+    .map((p) => Array.from(p).find((ch) => /[\p{L}\p{N}]/u.test(ch)) || '')
+    .filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'
 
 /** Enlace de WhatsApp con texto opcional. El número llega en formato E.164. */
 export const waLink = (e164, text = '') => {
@@ -117,11 +121,27 @@ export const fmtMoney = (cents, currency = 'USD', { sign = false } = {}) => {
   return `${prefix}${SYMBOL[currency] || ''}${text}`
 }
 
-/** "80", "80.5", "1,200.50" o "40 000" → centavos. Devuelve null si no es un monto válido. */
+/**
+ * Texto → centavos. Acepta punto o coma como decimal y el otro como separador de miles:
+ * "80", "80.5", "12,50", "1,200.50", "1.234,50", "40 000". Devuelve null si no es un monto claro.
+ */
 export const parseMoney = (text) => {
-  const clean = String(text ?? '').replace(/[\s,]/g, '')
-  if (!/^\d+(\.\d{1,2})?$/.test(clean)) return null
-  return Math.round(Number(clean) * 100)
+  let s = String(text ?? '').replace(/\s/g, '')
+  const comma = s.lastIndexOf(',')
+  const dot = s.lastIndexOf('.')
+  if (comma >= 0 && dot >= 0) {
+    // Los dos signos: el último es el decimal y el otro separa miles.
+    const [dec, thou] = comma > dot ? [',', '.'] : ['.', ',']
+    if (!new RegExp(`^\\d{1,3}(\\${thou}\\d{3})+\\${dec}\\d{1,2}$`).test(s)) return null
+    s = s.split(thou).join('').replace(dec, '.')
+  } else if (comma >= 0) {
+    // Solo comas: "12,50" es decimal; "1,200" o "1,200,000" son miles.
+    if (/^\d+,\d{1,2}$/.test(s)) s = s.replace(',', '.')
+    else if (/^\d{1,3}(,\d{3})+$/.test(s)) s = s.split(',').join('')
+    else return null
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null
+  return Math.round(Number(s) * 100)
 }
 
 export const METHOD = { sinpe: 'SINPE', card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia', other: 'Otro' }

@@ -10,13 +10,13 @@ export default {
         sunken: '#EFE8DD',
         line: '#E6DCCF',
         // Tinta
-        ink: { DEFAULT: '#2B221D', 2: '#5C5047', 3: '#776B61' },
+        ink: { DEFAULT: '#2B221D', 2: '#5C5047', 3: '#6B5F56' },
         espresso: '#231B17',
         // Marca (#C19C80 es el tono del logotipo)
         clay: { DEFAULT: '#C19C80', deep: '#8A6548', soft: '#EFE2D4' },
         // Estados
         sage: { DEFAULT: '#5F7556', soft: '#E3EADD' },
-        honey: { DEFAULT: '#946A1C', soft: '#F6EAD0' },
+        honey: { DEFAULT: '#82590F', soft: '#F6EAD0' },
         terracotta: { DEFAULT: '#A84E38', soft: '#F6E2DB' },
       },
       fontFamily: {

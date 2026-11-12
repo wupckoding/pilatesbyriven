@@ -507,7 +507,8 @@ const csv = (res, filename, header, rows) => {
   const cell = (v) => {
     const s = v === null || v === undefined ? '' : String(v)
     // Comillas para separadores y protección contra fórmulas al abrir en Excel.
-    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s
+    // (Un número negativo, como un reembolso, no es una fórmula: se deja como número.)
+    const safe = /^[=+\-@\t\r]/.test(s) && !/^-?\d+([.,]\d+)?$/.test(s) ? `'${s}` : s
     return /[";\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
   }
   const body = [header, ...rows].map((r) => r.map(cell).join(';')).join('\r\n')

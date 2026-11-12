@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { z } from 'zod'
 import { db, tx } from '../db.js'
-import { h, parse, HttpError } from '../lib/http.js'
+import { h, parse, HttpError, validBirthDate } from '../lib/http.js'
 import { normalizeWhatsapp } from '../lib/phone.js'
 import { audit } from '../lib/audit.js'
 import { addDays, todayCR, weekStart, formatStudentNumber } from '../lib/time.js'
@@ -302,7 +302,7 @@ router.post('/bookings', admin, h(async (req, res) => {
   const { booking, created } = await createBooking({
     sessionId: body.sessionId, clientId: body.clientId, actor: req.user, byStaff: true, joinWaitlist: !!body.joinWaitlist,
   })
-  res.status(created ? 201 : 200).json({ booking })
+  res.status(created ? 201 : 200).json({ booking, created })
 }))
 
 // Reprogramar: libera el cupo anterior, toma el nuevo y conserva el crédito.
@@ -355,7 +355,7 @@ router.get('/clients', admin, h(async (req, res) => {
   }), req.query)
   const params = []
   const conds = ['c.archived_at is null']
-  if (q.intake) { params.push(q.intake); conds.push(`c.intake_status = ${params.length}`) }
+  if (q.intake) { params.push(q.intake); conds.push(`c.intake_status = $${params.length}`) }
   if (q.followup) { params.push(todayCR()); conds.push(`c.next_followup_on <= $${params.length}::date`) }
   if (q.status && q.status !== 'all') { params.push(q.status); conds.push(`c.status = $${params.length}`) }
   if (q.search) {
@@ -365,7 +365,11 @@ router.get('/clients', admin, h(async (req, res) => {
     const digits = numeric ? q.search.replace(/\D/g, '') : ''
     params.push(`%${q.search.replace(/[%_\\]/g, '\\$&')}%`)
     const like = `$${params.length}`
-    const parts = [`c.full_name ilike ${like}`, `c.email::text ilike ${like}`]
+    // Sin distinguir tildes: "sofia" encuentra a "Sofía".
+    // (Se incluyen las mayúsculas con tilde: según la configuración regional, lower() no las convierte.)
+    const plain = (expr) => `translate(lower(${expr}), 'áéíóúüñàèìòùâêîôûäëïöÁÉÍÓÚÜÑÀÈÌÒÙÂÊÎÔÛÄËÏÖ', 'aeiouunaeiouaeiouaeioaeiouunaeiouaeiouaeio')`
+    params.push(`%${q.search.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[%_\\]/g, '\\$&')}%`)
+    const parts = [`${plain('c.full_name')} like $${params.length}`, `c.email::text ilike ${like}`]
     if (digits.length >= 3) { params.push(`%${digits}%`); parts.push(`c.whatsapp like $${params.length}`) }
     if (digits && digits.length <= 6) { params.push(Number(digits)); parts.push(`c.student_number = $${params.length}`) }
     conds.push(`(${parts.join(' or ')})`)
@@ -386,7 +390,7 @@ const clientFields = {
   fullName: z.string({ required_error: 'Escribe el nombre' }).trim().min(2, 'Escribe el nombre completo').max(120),
   whatsapp: z.string().trim().max(40).nullable().optional(),
   email: z.union([z.literal(''), z.string().trim().toLowerCase().email('Correo inválido')]).nullable().optional(),
-  birthDate: ymd.nullable().optional(),
+  birthDate: ymd.nullable().optional().refine(validBirthDate, 'Revisa la fecha de nacimiento'),
   status: z.enum(STATUSES).optional(),
   source: z.enum(SOURCES).optional(),
   preferredModality: z.enum(MODALITIES).nullable().optional(),

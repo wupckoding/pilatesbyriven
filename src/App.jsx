@@ -1,4 +1,6 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
+import { AnimatePresence, MotionConfig } from 'framer-motion'
+import Intro, { shouldShowIntro } from './app/Intro'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { WifiOff } from 'lucide-react'
 import { useAuth } from './lib/auth'
@@ -30,6 +32,27 @@ function Splash() {
 }
 
 export default function App() {
+  const [intro, setIntro] = useState(() => {
+    const show = shouldShowIntro()
+    // Antes del primer pintado: así ninguna animación de entrada arranca debajo del telón.
+    if (show) document.documentElement.classList.add('intro-on')
+    return show
+  })
+  // Mientras dura la apertura, las animaciones de entrada de la pantalla de abajo esperan (ver index.css).
+  useEffect(() => {
+    document.documentElement.classList.toggle('intro-on', intro)
+    return () => document.documentElement.classList.remove('intro-on')
+  }, [intro])
+
+  return (
+    <MotionConfig reducedMotion="user">
+      <Screens />
+      <AnimatePresence>{intro && <Intro key="intro" onDone={() => setIntro(false)} />}</AnimatePresence>
+    </MotionConfig>
+  )
+}
+
+function Screens() {
   const { status, user } = useAuth()
 
   if (status === 'loading') return <Splash />

@@ -2,7 +2,10 @@ import React, { useEffect, useRef } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { CalendarDays, CalendarHeart, CalendarPlus, Home, Landmark, LogOut, Settings, UserRound, Users, WalletCards } from 'lucide-react'
 import { useAuth } from '../lib/auth'
+import { motion } from 'framer-motion'
 import { Avatar, Logo, cx } from '../ui'
+
+const SPRING = { type: 'spring', stiffness: 520, damping: 40 }
 
 const NAV = {
   admin: [
@@ -54,12 +57,17 @@ export default function Shell({ children }) {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) => cx(
-                'flex h-11 items-center gap-3 rounded-2xl px-4 text-sm font-semibold transition-colors duration-150',
-                isActive ? 'bg-ink text-surface shadow-card' : 'text-ink-2 hover:bg-ink/5 hover:text-ink',
+                'relative flex h-11 items-center gap-3 rounded-2xl px-4 text-sm font-semibold transition-colors duration-150',
+                isActive ? 'text-surface' : 'text-ink-2 hover:bg-ink/5 hover:text-ink',
               )}
             >
-              <item.icon className="h-[18px] w-[18px]" aria-hidden="true" />
-              {item.label}
+              {({ isActive }) => (
+                <>
+                  {isActive && <motion.span layoutId="side-pill" transition={SPRING} className="absolute inset-0 rounded-2xl bg-ink shadow-card" />}
+                  <item.icon className="relative h-[18px] w-[18px]" aria-hidden="true" />
+                  <span className="relative">{item.label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -93,7 +101,7 @@ export default function Shell({ children }) {
         </header>
 
         <main ref={mainRef} className="scroll-area flex-1">
-          <div className="mx-auto w-full max-w-[1320px] px-5 pb-10 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-12">
+          <div key={pathname} className="page-in mx-auto w-full max-w-[1320px] px-5 pb-10 pt-6 sm:px-8 lg:px-12 lg:pb-16 lg:pt-12">
             {children}
           </div>
         </main>
@@ -113,8 +121,9 @@ export default function Shell({ children }) {
               >
                 {({ isActive }) => (
                   <>
-                    <span className={cx('flex h-8 w-14 items-center justify-center rounded-full transition-colors', isActive && 'bg-clay-soft text-clay-deep')}>
-                      <item.icon className="h-5 w-5" aria-hidden="true" />
+                    <span className={cx('relative flex h-8 w-14 items-center justify-center rounded-full transition-colors', isActive && 'text-clay-deep')}>
+                      {isActive && <motion.span layoutId="tab-pill" transition={SPRING} className="absolute inset-0 rounded-full bg-clay-soft" />}
+                      <item.icon className="relative h-5 w-5" aria-hidden="true" />
                     </span>
                     {item.short || item.label}
                   </>

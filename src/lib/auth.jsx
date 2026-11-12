@@ -11,6 +11,8 @@ export function AuthProvider({ children }) {
 
   const clear = useCallback(() => {
     setToken(null)
+    // Un borrador de admisión a medias no debe quedar en el dispositivo al salir.
+    try { Object.keys(sessionStorage).filter((k) => k.startsWith('pbr_intake_draft_')).forEach((k) => sessionStorage.removeItem(k)) } catch { /* sin almacenamiento */ }
     queryClient.clear()
     setState({ status: 'guest', user: null, client: null })
   }, [queryClient])

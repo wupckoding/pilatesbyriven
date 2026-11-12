@@ -1,3 +1,4 @@
+import { appendFileSync } from 'fs'
 import { config } from '../config.js'
 
 /** Mensajes capturados en modo 'capture' (pruebas y desarrollo). */
@@ -28,6 +29,10 @@ export async function sendMail({ to, subject, text, html }) {
     outbox.push({ to, subject, text, html, at: new Date() })
     if (outbox.length > 200) outbox.shift()
     if (!config.isTest) console.log(`[correo → ${to}] ${subject}\n${text}`)
+    // Desarrollo: además se anotan en un archivo, para leer el código sin mirar la consola.
+    if (process.env.MAIL_CAPTURE_FILE) {
+      try { appendFileSync(process.env.MAIL_CAPTURE_FILE, `${new Date().toISOString()}\t${to}\t${subject}\n`) } catch { /* solo ayuda de desarrollo */ }
+    }
     return
   }
   await (await smtp()).sendMail({ from: config.mail.from, to, subject, text, html })

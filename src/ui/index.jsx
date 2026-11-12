@@ -19,6 +19,17 @@ export function Logo({ tone = 'beige', className = '', size = 'md' }) {
   )
 }
 
+/** Círculo con una palomita que se traza: para los momentos de "listo". */
+export function SuccessCheck({ className = '' }) {
+  return (
+    <span className={cx('success-check inline-flex h-16 w-16 items-center justify-center rounded-full bg-sage-soft text-sage', className)} aria-hidden="true">
+      <svg viewBox="0 0 32 32" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 16.5l5.5 5.5L24.5 10.5" pathLength="1" />
+      </svg>
+    </span>
+  )
+}
+
 export function Spinner({ className = 'h-5 w-5' }) {
   return <LoaderCircle className={cx('animate-spin', className)} aria-hidden="true" />
 }

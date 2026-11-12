@@ -65,13 +65,28 @@ const Question = ({ title, hint, children }) => (
  * Las preguntas de salud son voluntarias; la declaración va en una pantalla aparte.
  * Sirve para la clienta (desde su cuenta) y para el llenado asistido en el estudio.
  */
-export default function IntakeForm({ info, assisted = false, onSubmit, onExit, exitLabel = 'Ahora no' }) {
-  const [step, setStep] = useState(0)
-  const [personal, setPersonal] = useState({
+const readDraft = (key) => {
+  if (!key) return null
+  try { return JSON.parse(sessionStorage.getItem(key) || 'null') } catch { return null }
+}
+export const clearIntakeDrafts = () => {
+  try {
+    Object.keys(sessionStorage).filter((k) => k.startsWith('pbr_intake_draft_')).forEach((k) => sessionStorage.removeItem(k))
+  } catch { /* sin almacenamiento */ }
+}
+
+export default function IntakeForm({ info, assisted = false, onSubmit, onExit, exitLabel = 'Ahora no', draftKey }) {
+  const draft = useRef(readDraft(draftKey)).current
+  const [step, setStep] = useState(draft?.step ?? 0)
+  const [personal, setPersonal] = useState(draft?.personal ?? {
     birthDate: info.personal?.birthDate || '', emergencyName: info.personal?.emergencyName || '', emergencyPhone: info.personal?.emergencyPhone || '',
   })
-  const [a, setA] = useState({ ...BLANK_ANSWERS, ...(info.answers || {}) })
-  const [hasPain, setHasPain] = useState(info.answers?.painLevel != null)
+  const [a, setA] = useState(draft?.a ?? { ...BLANK_ANSWERS, ...(info.answers || {}) })
+  const [hasPain, setHasPain] = useState(draft?.hasPain ?? info.answers?.painLevel != null)
+  useEffect(() => {
+    if (!draftKey) return
+    try { sessionStorage.setItem(draftKey, JSON.stringify({ step, personal, a, hasPain })) } catch { /* sin almacenamiento */ }
+  }, [draftKey, step, personal, a, hasPain])
   const [accepted, setAccepted] = useState(false)
   const [signature, setSignature] = useState('')
   const [error, setError] = useState(null)
@@ -97,6 +112,7 @@ export default function IntakeForm({ info, assisted = false, onSubmit, onExit, e
         answers: { ...a, painLevel: hasPain ? a.painLevel : null, weeklyFrequency: a.weeklyFrequency },
         consent: { accepted, fullName: signature.trim(), version: info.consentVersion },
       })
+      clearIntakeDrafts()
     } catch (err) {
       setError(err)
       setBusy(false)

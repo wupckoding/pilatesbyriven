@@ -1,11 +1,10 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { INTAKE } from '../../lib/format'
-import { Badge, Button, Card, ErrorState, Skeleton } from '../../ui'
+import { Badge, Button, Card, ErrorState, Skeleton, SuccessCheck } from '../../ui'
 import IntakeForm from '../IntakeForm'
 
 /** Paso de admisión de la clienta: aparece al registrarse y antes de reservar o comprar. */
@@ -29,8 +28,8 @@ export default function Intake() {
 
   if (done) {
     return (
-      <div className="mx-auto flex max-w-md flex-col items-center py-10 text-center">
-        <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-sage-soft text-sage"><Check className="h-7 w-7" aria-hidden="true" /></span>
+      <div className="stagger-in mx-auto flex max-w-md flex-col items-center py-10 text-center">
+        <SuccessCheck />
         <h1 className="display mt-6 text-[34px] text-ink">¡Listo!</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-2">Recibimos tu formulario. Ya puedes reservar tu clase.</p>
         <div className="mt-7 flex flex-wrap justify-center gap-2">
@@ -65,7 +64,7 @@ export default function Intake() {
   }
 
   return (
-    <IntakeForm
+    <IntakeForm draftKey={client ? `pbr_intake_draft_${client.id}` : undefined}
       info={{ ...data, studentCode: client?.studentCode }}
       onSubmit={submit}
       onExit={() => (editing ? setEditing(false) : navigate('/'))}

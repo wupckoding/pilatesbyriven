@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarCheck, ChevronRight, ClipboardCheck, ClipboardList, Hourglass, PhoneCall, Receipt, RefreshCw, Sparkles, TimerOff, Wallet } from 'lucide-react'
+import { ArrowRight, CircleCheck, CalendarCheck, ChevronRight, ClipboardCheck, ClipboardList, Hourglass, PhoneCall, Receipt, RefreshCw, Sparkles, TimerOff, Wallet } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
 import { MODALITY, capitalize, firstName, fmtDate, fmtMoney, fmtTime, greeting } from '../../lib/format'
@@ -97,7 +97,7 @@ export default function AdminHome() {
   const counts = data?.counts
 
   return (
-    <div className="space-y-9">
+    <div className="stagger-in space-y-9">
       <header>
         <p className="eyebrow mb-2">{data ? capitalize(fmtDate(data.today)) : ' '}</p>
         <h1 className="display text-[36px] text-ink sm:text-[46px]">
@@ -139,27 +139,6 @@ export default function AdminHome() {
           </div>
         </section>
       )}
-
-      {/* Pendientes: cada indicador abre el detalle que compone el total */}
-      {isAdmin && counts && (
-        <section>
-          <SectionTitle>Pendientes</SectionTitle>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label="Admisión" value={counts.intakeToReview} hint="Por revisar en privado" to="/clientas?admision=needs_review" icon={ClipboardList} tone={counts.intakeToReview ? 'alert' : 'default'} />
-            <Stat label="Pagos" value={counts.paymentsToVerify} hint="Por verificar" to="/paquetes?vista=payments" icon={Receipt} tone={counts.paymentsToVerify ? 'alert' : 'default'} />
-            <Stat label="Renovaciones" value={counts.renewalsDue} hint="Paquetes por vencer" to="/paquetes?vista=expiring" icon={RefreshCw} />
-            <Stat label="Retenciones" value={counts.holdsExpired} hint="Vencidas sin pago" to="/paquetes?vista=due" icon={TimerOff} tone={counts.holdsExpired ? 'alert' : 'default'} />
-            <Stat label="Por confirmar" value={counts.pendingBookings} hint="Reservas nuevas" to="/reservas?vista=pending" icon={CalendarCheck} tone={counts.pendingBookings ? 'alert' : 'default'} />
-            <Stat label="Lista de espera" value={counts.waitlisted} hint="Esperan un cupo" to="/reservas?vista=waitlist" icon={Hourglass} />
-            <Stat label="Asistencia" value={counts.attendancePending} hint="Por tomar" to="/reservas?vista=attendance" icon={ClipboardCheck} tone={counts.attendancePending ? 'alert' : 'default'} />
-            <Stat label="Seguimientos" value={counts.followupsDue} hint="Para hoy o vencidos" to="/clientas?seguimiento=1" icon={PhoneCall} />
-            <Stat label="Por cobrar" value={data.month?.receivablesCount ?? 0} hint="Paquetes con saldo" to="/paquetes?vista=due" icon={Wallet} />
-          </div>
-        </section>
-      )}
-
-      {/* Resumen mensual: cobros por fecha de recepción, paquetes por mes de servicio */}
-      {isAdmin && data?.month && <MonthSummary month={data.month} />}
 
       <div className="grid gap-9 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <section>
@@ -216,6 +195,38 @@ export default function AdminHome() {
           )}
         </div>
       </div>
+
+
+      {/* Pendientes: cada indicador abre el detalle que compone el total */}
+      {isAdmin && counts && (
+        <section>
+          <SectionTitle>Pendientes</SectionTitle>
+          {(() => {
+          const cards = [
+            counts.intakeToReview > 0 && <Stat label="Admisión" value={counts.intakeToReview} hint="Por revisar en privado" to="/clientas?admision=needs_review" icon={ClipboardList} tone={counts.intakeToReview ? 'alert' : 'default'} />,
+            counts.paymentsToVerify > 0 && <Stat label="Pagos" value={counts.paymentsToVerify} hint="Por verificar" to="/paquetes?vista=payments" icon={Receipt} tone={counts.paymentsToVerify ? 'alert' : 'default'} />,
+            counts.renewalsDue > 0 && <Stat label="Renovaciones" value={counts.renewalsDue} hint="Paquetes por vencer" to="/paquetes?vista=expiring" icon={RefreshCw} />,
+            counts.holdsExpired > 0 && <Stat label="Retenciones" value={counts.holdsExpired} hint="Vencidas sin pago" to="/paquetes?vista=due" icon={TimerOff} tone={counts.holdsExpired ? 'alert' : 'default'} />,
+            counts.pendingBookings > 0 && <Stat label="Por confirmar" value={counts.pendingBookings} hint="Reservas nuevas" to="/reservas?vista=pending" icon={CalendarCheck} tone={counts.pendingBookings ? 'alert' : 'default'} />,
+            counts.waitlisted > 0 && <Stat label="Lista de espera" value={counts.waitlisted} hint="Esperan un cupo" to="/reservas?vista=waitlist" icon={Hourglass} />,
+            counts.attendancePending > 0 && <Stat label="Asistencia" value={counts.attendancePending} hint="Por tomar" to="/reservas?vista=attendance" icon={ClipboardCheck} tone={counts.attendancePending ? 'alert' : 'default'} />,
+            counts.followupsDue > 0 && <Stat label="Seguimientos" value={counts.followupsDue} hint="Para hoy o vencidos" to="/clientas?seguimiento=1" icon={PhoneCall} />,
+            (data.month?.receivablesCount ?? 0) > 0 && <Stat label="Por cobrar" value={data.month?.receivablesCount ?? 0} hint="Paquetes con saldo" to="/paquetes?vista=due" icon={Wallet} />,
+          ].filter(Boolean)
+          return cards.length === 0
+            ? <Card className="flex items-center gap-3 p-5 text-[15px] font-medium text-ink-2"><CircleCheck className="h-5 w-5 text-sage" aria-hidden="true" />Todo al día: no hay nada pendiente.</Card>
+            : (
+              <>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{cards.map((card, i) => React.cloneElement(card, { key: i }))}</div>
+                {cards.length < 9 && <p className="mt-3 text-[13px] text-ink-3">Lo demás está al día.</p>}
+              </>
+            )
+        })()}
+        </section>
+      )}
+
+      {/* Resumen mensual: cobros por fecha de recepción, paquetes por mes de servicio */}
+      {isAdmin && data?.month && <MonthSummary month={data.month} />}
 
       <SessionSheet sessionId={openSession} onClose={() => setOpenSession(null)} />
     </div>

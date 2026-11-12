@@ -13,9 +13,15 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/icons/icon-180.png" />
     <title>Pilates by Riven</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #F5F0E8; }
+      #boot { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+      #boot p { margin: 0; font: 600 12px/1 system-ui, sans-serif; letter-spacing: 0.42em; padding-left: 0.42em; text-transform: uppercase; color: #8A6548; opacity: 0.55; }
+      #boot img { width: min(62vw, 300px); height: auto; opacity: 0.28; }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot" aria-hidden="true"><p>Pilates by</p><img src="/logo-beige.svg" alt="" /></div></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

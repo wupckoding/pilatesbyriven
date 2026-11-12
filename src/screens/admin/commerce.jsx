@@ -269,7 +269,7 @@ export function PaymentSheet({ clientId, clientName, pkg, onClose }) {
     reference: '', receivedOn: today, verified: 'yes', fxRate: '', note: '',
   })
   const [error, setError] = useState(null)
-  const set = (name) => (e) => { setForm((f) => ({ ...f, [name]: e.target.value })); setError(null) }
+  const set = (name) => (e) => { setForm((f) => ({ ...f, [name]: e.target.value })); setError(null); setOverOk(false) }
   const fieldError = (name) => (error?.data?.field === name ? error.message : undefined)
 
   const amountCents = parseMoney(form.amount)
@@ -277,10 +277,16 @@ export function PaymentSheet({ clientId, clientName, pkg, onClose }) {
   const fx = Number(form.fxRate)
   const applied = !otherCurrency ? amountCents : (amountCents && fx > 0 ? Math.round(pkg.currency === 'USD' ? amountCents / fx : amountCents * fx) : null)
   const remaining = pkg && applied !== null ? pkg.balanceCents - applied : null
+  const over = remaining !== null && remaining < 0 ? -remaining : 0
+  const [overOk, setOverOk] = useState(false)
 
   const save = useMutation({
     mutationFn: () => {
       if (!amountCents) throw Object.assign(new Error('Escribe un monto válido'), { data: { field: 'amountCents' } })
+      if (over > 0 && !overOk) {
+        setOverOk(true)
+        throw new Error(`Este pago supera el saldo en ${fmtMoney(over, pkg.currency)}. Si es correcto, toca "Guardar de todos modos".`)
+      }
       return api.post('/admin/payments', {
         clientId, packageId: pkg?.id || null, amountCents, currency: form.currency, method: form.method,
         reference: form.reference.trim(), receivedOn: form.receivedOn, verified: form.verified === 'yes',
@@ -304,7 +310,7 @@ export function PaymentSheet({ clientId, clientName, pkg, onClose }) {
       footer={(
         <>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button loading={save.isPending} onClick={() => save.mutate()}>Guardar pago</Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>{over > 0 && overOk ? 'Guardar de todos modos' : 'Guardar pago'}</Button>
         </>
       )}
     >
@@ -348,8 +354,10 @@ export function PaymentSheet({ clientId, clientName, pkg, onClose }) {
           <Input value={form.note} onChange={set('note')} maxLength={500} />
         </Field>
         {pkg && remaining !== null && amountCents > 0 && (
-          <p className={cx('rounded-2xl px-4 py-3 text-sm font-medium', remaining <= 0 ? 'bg-sage-soft text-sage' : 'bg-honey-soft text-honey')}>
-            {remaining <= 0
+          <p className={cx('rounded-2xl px-4 py-3 text-sm font-medium', remaining === 0 ? 'bg-sage-soft text-sage' : 'bg-honey-soft text-honey')}>
+            {over > 0
+              ? `Ojo: el monto supera el saldo (${fmtMoney(pkg.balanceCents, pkg.currency)}) por ${fmtMoney(over, pkg.currency)}.`
+              : remaining <= 0
               ? (form.verified === 'yes' ? 'Con este pago el paquete queda cubierto y sus clases se confirman.' : 'Al verificarlo, el paquete quedará cubierto.')
               : `Pago parcial: quedará un saldo de ${fmtMoney(remaining, pkg.currency)}.`}
           </p>

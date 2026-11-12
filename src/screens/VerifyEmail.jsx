@@ -17,6 +17,8 @@ export default function VerifyEmail() {
   const [resending, setResending] = useState(false)
   const [wait, setWait] = useState(WAIT)
   const submitted = useRef('')
+  const inputRef = useRef(null)
+  const [shake, setShake] = useState(0)
 
   useEffect(() => {
     if (wait <= 0) return undefined
@@ -35,13 +37,16 @@ export default function VerifyEmail() {
     } catch (err) {
       setError(err)
       setBusy(false)
+      setCode('')
+      setShake((n) => n + 1)
+      inputRef.current?.focus()
     }
   }
 
   const onChange = (e) => {
     const value = e.target.value.replace(/\D/g, '').slice(0, 6)
     setCode(value)
-    setError(null)
+    if (value) setError(null)
     // Al completar los 6 dígitos se envía solo (una vez por código escrito).
     if (value.length === 6 && value !== submitted.current) submit(value)
   }
@@ -78,6 +83,8 @@ export default function VerifyEmail() {
       <form onSubmit={(e) => { e.preventDefault(); submit() }} className="mt-7 space-y-4" noValidate>
         <Field label="Código de verificación" htmlFor="verify-code" error={error?.message}>
           <Input
+            key={shake}
+            ref={inputRef}
             id="verify-code"
             value={code}
             onChange={onChange}
@@ -88,7 +95,7 @@ export default function VerifyEmail() {
             placeholder="······"
             autoFocus
             aria-invalid={error ? true : undefined}
-            className="text-center font-semibold tracking-[0.5em] !text-[24px]"
+            className={`text-center font-semibold tracking-[0.5em] !text-[24px] ${shake ? 'shake' : ''}`}
           />
         </Field>
         <Button type="submit" size="lg" block loading={busy} disabled={code.length !== 6}>Confirmar</Button>

@@ -53,18 +53,25 @@ export function createApp() {
   app.use('/api/orders/:id/proof', express.json({ limit: '11mb' }))
   app.use(express.json({ limit: '100kb' }))
 
-  const limiter = (max, windowMs) => rateLimit({
+  const limiter = (max, windowMs, extra = {}) => rateLimit({
     windowMs,
     max,
     standardHeaders: true,
     legacyHeaders: false,
     skip: () => config.isTest,
-    handler: (_req, res) => res.status(429).json({
-      error: 'Demasiados intentos. Espera unos minutos e inténtalo de nuevo', code: 'RATE_LIMITED',
-    }),
+    ...extra,
+    handler: (req, res) => {
+      // Dice cuánto falta, en vez de un "espera unos minutos" sin fin a la vista.
+      const reset = req.rateLimit?.resetTime ? Math.max(1, Math.ceil((req.rateLimit.resetTime - Date.now()) / 60_000)) : null
+      const wait = reset ? (reset === 1 ? '1 minuto' : `${reset} minutos`) : 'unos minutos'
+      res.status(429).json({ error: `Demasiados intentos. Inténtalo de nuevo en ${wait}`, code: 'RATE_LIMITED', retryAfterMinutes: reset })
+    },
   })
   app.use('/api', limiter(300, 60_000))
-  app.use(['/api/auth/login', '/api/auth/register'], limiter(10, 15 * 60_000))
+  // Inicio de sesión: solo cuentan los intentos fallidos (varias clientas pueden compartir el wifi del estudio).
+  app.use('/api/auth/login', limiter(20, 15 * 60_000, { skipSuccessfulRequests: true }))
+  // Registro: solo cuentan las cuentas que sí se crean; un formulario con errores no gasta intentos.
+  app.use('/api/auth/register', limiter(10, 15 * 60_000, { skipFailedRequests: true }))
   app.use(['/api/auth/google', '/api/auth/verify-email', '/api/auth/resend-code'], limiter(30, 15 * 60_000))
 
   // Lo consulta Docker para saber si la app está sana: responde 503 si no hay base de datos.

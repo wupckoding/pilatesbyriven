@@ -38,8 +38,8 @@ export function AuthLayout({ children }) {
   return (
     <div className="flex h-full bg-canvas">
       <div className="grain relative hidden w-[46%] flex-col justify-between overflow-hidden bg-espresso p-14 text-white lg:flex">
-        <Logo tone="white" size="md" className="items-start" />
-        <div>
+        <Logo tone="white" size="md" className="page-in items-start" />
+        <div className="stagger-in">
           <p className="display text-[64px] leading-[0.98]">
             Tu práctica,<br /><em className="text-clay">a tu ritmo.</em>
           </p>
@@ -51,7 +51,7 @@ export function AuthLayout({ children }) {
       </div>
 
       <div className="scroll-area flex flex-1 flex-col">
-        <div className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6 py-10">
+        <div className="stagger-in mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6 py-10">
           <div className="mb-10 flex flex-col items-center lg:hidden">
             <Logo size="lg" />
             <p className="mt-5 text-[10px] font-semibold uppercase tracking-[0.3em] text-ink-3">Strength · Control · Elegance</p>
@@ -207,7 +207,7 @@ export default function AuthScreen() {
           <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
             {isRegister && (
               <Field label="Nombre completo" error={fieldError('fullName')}>
-                <Input value={form.fullName} onChange={set('fullName')} autoComplete="name" required />
+                <Input value={form.fullName} onChange={set('fullName')} autoComplete="name" maxLength={120} required />
               </Field>
             )}
             <Field label="Correo electrónico" error={fieldError('email')}>
