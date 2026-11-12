@@ -5,7 +5,9 @@ import { chromium } from '@playwright/test'
 
 const base = process.argv[2]
 if (!base) throw new Error('uso: node e2e/smoke.mjs <url>')
-const browser = await chromium.launch()
+// SMOKE_IP=1.2.3.4 fuerza la IP del servidor (útil mientras el DNS nuevo aún no llega a esta red).
+const args = process.env.SMOKE_IP ? [`--host-resolver-rules=MAP ${new URL(base).hostname} ${process.env.SMOKE_IP}`] : []
+const browser = await chromium.launch({ args })
 const page = await browser.newPage()
 const problems = []
 page.on('console', (m) => { if (m.type() === 'error') problems.push(m.text().slice(0, 200)) })
