@@ -11,7 +11,7 @@ Tudo roda em Docker, em três serviços:
 Os dados ficam em volumes do Docker (`pilates_db-data`, `pilates_uploads`), fora das imagens:
 publicar uma versão nova não toca neles. As migrações do banco rodam sozinhas quando a `app` sobe.
 
-> **Estado (12/11/2026):** no ar em `https://app.pilatesbyriven.com` (VPS `2.25.98.70`), com
+> **Estado (12/11/2026):** no ar em `https://app.pilatesbyriven.com`, com
 > certificado HTTPS emitido; publicação, backup, restauração (ensaio com marcador) e cron diário
 > foram testados lá. Para publicar uma versão nova: `deploy/publish.sh pilates-vps`.
 > A conta admin (`contacto@pilatesbyriven.com`) foi criada; a senha inicial está em

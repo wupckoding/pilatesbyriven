@@ -70,7 +70,6 @@ Requisitos: documento "Requisitos App Pilates by Riven" entregue pela cliente.
 **Do lado da cliente ou do desenvolvedor:**
 - Configurar SMTP no `/opt/pilates/.env` da VPS (liga a confirmação de e-mail).
 - Criar o client ID do Google OAuth (liga a entrada com Google).
-- Trocar a senha de root da VPS.
 - Guardar uma cópia da `INTAKE_KEY` fora do servidor.
 - Ter backups fora da VPS.
 - Revisão jurídica dos textos de privacidade e consentimento (hoje marcados como "Borrador").
