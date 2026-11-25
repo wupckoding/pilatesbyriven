@@ -45,11 +45,14 @@ cd server
 npm test
 ```
 
-São 45 testes. Além de cadastro, permissões, último cupo e fuso horário, cobrem os casos de aceitação do documento
+São 67 testes. Além de cadastro, permissões, último cupo e fuso horário, cobrem os casos de aceitação do documento
 de requisitos: renovação com pagamento parcial confirmada uma única vez, quatro clases e uma reposição,
 ausência e cancelamento conforme a regra do pacote, e o fechamento de Caja do exemplo (US$2.400 cobrados,
 US$900 de gastos, US$1.500 disponíveis, US$1.200 transferidos). A Fase 3 testa o passo de admissão antes de reservar,
 que as respostas clínicas não vazam para ficha, agenda, Caja nem exportações, e o fluxo de ordem com comprovante.
+`verification.test.js` cobre a confirmação de e-mail por código e a entrada com Google; `fixes.test.js` fixa os
+defeitos encontrados nos testes com agentes (filtro de admissão, busca sem acentos, mensagens em espanhol, datas
+de nascimento, reserva duplicada, reembolso no CSV).
 
 ## Testes de interface
 
@@ -58,9 +61,9 @@ npm run test:e2e
 ```
 
 Playwright abre o app num navegador real, em computador (1440 px) e em celular (Pixel 7), contra uma API e um banco próprios
-(`pilates_e2e`, recriado a cada rodada; portas 3100 e 3101). São 18 cenários em cada tamanho de tela: cadastro e login,
+(`pilates_e2e`, recriado a cada rodada; portas 3100 e 3101). São 20 cenários em cada tamanho de tela (40 no total): cadastro e login,
 admissão em quatro passos, reservar e cancelar, comprar e subir comprovante, agenda, clientas, pacote com pagamento parcial e
-reembolso, Caja, admissão no painel, ajustes e permissões da instrutora. Toda tela é conferida quanto a erro de JavaScript,
+reembolso, Caja, admissão no painel, ajustes, permissões da instrutora e a abertura animada da marca. Toda tela é conferida quanto a erro de JavaScript,
 estouro de largura e, no celular, botões pequenos demais para o dedo. O relatório com capturas fica em `e2e/report/`.
 
 ## Simulação de uso
@@ -80,13 +83,18 @@ No fim, 17 regras de negócio são conferidas direto no banco. O último relató
 
 ```
 server/
-  migrations/         SQL versionado (001 núcleo, 002 catálogo/pagamentos, 003 câmbio e idempotência)
+  migrations/         SQL versionado (001 núcleo … 005 confirmação de e-mail e Google)
   src/routes/         auth, client (clienta), admin (painel), commerce (pacotes, pagamentos, Caja)
-  src/services/       reservas (trava de cupo), pacotes (créditos), sessões, ajustes
+  src/services/       reservas (trava de cupo), pacotes (créditos), sessões, ajustes, verification (código por e-mail), google
+  src/lib/mail.js     envio de e-mail (SMTP; em dev grava num arquivo)
   test/               testes de integração
 src/
-  ui/                 design system (botões, cartões, folha modal, toasts)
+  ui/                 design system (botões, cartões, folha modal, toasts, check de sucesso)
+  app/Intro.jsx       abertura animada da marca (letras de RIVEN, cortina)
   app/Shell.jsx       barra lateral (computador) e barra inferior (celular)
+  screens/            AuthScreen, VerifyEmail, GoogleButton, Account
+deploy/               Docker Compose, Caddy, publish/backup/restore (ver deploy/README.md)
+e2e/                  testes Playwright, smoke.mjs (conferência de um endereço publicado)
   screens/admin/      Inicio, Agenda, Reservas, Clientas, Paquetes y pagos, Caja, Ajustes
   screens/client/     Inicio, Reservar, Mis clases, Perfil
 ```
@@ -98,9 +106,18 @@ src/
 | 1 | PostgreSQL, modelo de dados, autenticação e papéis, design system, agenda, reservas, fichas | Feita |
 | 2 | Pacotes e créditos, renovações com retenção de vaga, pagamentos (parcial, por verificar, reembolso, CRC/USD), Caja e fundo Lindora, exportação CSV | Feita |
 | 3 | Formulário de admissão e consentimento (respostas criptografadas, acesso só do admin com registro), compra pela clienta, comprovante SINPE, link de Compra Click por ordem | Feita |
-| 4 | Simulação de 1000 usuárias e testes de interface (feitos); arquivos de deploy na VPS (escritos, ainda não rodados numa VPS); app iPhone (pendente) | Em andamento |
+| 4 | Simulação de 1000 usuárias, testes de interface e testes com agentes (feitos); publicação na VPS (feita); confirmação de e-mail e Google (prontos, aguardam SMTP e client ID); app iPhone (pendente) | Em andamento |
+
+O histórico detalhado de cada etapa e o que ainda falta estão em [HISTORICO.md](HISTORICO.md).
 
 ## Publicação
+
+No ar em **https://app.pilatesbyriven.com** (VPS Hostinger). Para publicar a versão atual:
+
+```bash
+bash deploy/publish.sh pilates-vps
+SMOKE_IP=2.25.98.70 node e2e/smoke.mjs https://app.pilatesbyriven.com
+```
 
 Docker com três serviços (Caddy com HTTPS automático, app, PostgreSQL), backup e restauração:
 o roteiro completo está em [deploy/README.md](deploy/README.md).
