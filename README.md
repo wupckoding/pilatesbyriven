@@ -90,7 +90,7 @@
 
 ## 🔒 Segurança e privacidade
 
-| | |
+| Área | Proteção |
 |---|---|
 | **Respostas de saúde** | Criptografadas (AES-256-GCM); só a administração lê, com registro de cada acesso |
 | **Contas** | Senhas com scrypt, sessões JWT, limite de tentativas, contas não confirmadas apagadas em 48 h |
