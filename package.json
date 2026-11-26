@@ -7,9 +7,19 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:ios": "vite build --mode native && cap sync ios",
+    "ios": "cap open ios"
   },
   "dependencies": {
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.6.0",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.6.0",
+    "@capacitor/share": "8.0.3",
+    "@capacitor/splash-screen": "8.0.2",
+    "@capacitor/status-bar": "8.0.4",
+    "@capgo/capacitor-social-login": "8.7.7",
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@tanstack/react-query": "^5.107.1",
@@ -20,6 +30,7 @@
     "react-router-dom": "^6.30.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.6.0",
     "@playwright/test": "^1.65.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",

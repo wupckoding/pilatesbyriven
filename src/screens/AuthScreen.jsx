@@ -5,6 +5,8 @@ import { useAuth } from '../lib/auth'
 import { Button, Field, Input, Logo, Segmented } from '../ui'
 import Sheet from '../ui/Sheet'
 import GoogleButton from './GoogleButton'
+import NativeSignIn from './NativeSignIn'
+import { isNative } from '../lib/native'
 
 const MODES = [
   { value: 'login', label: 'Iniciar sesión' },
@@ -50,7 +52,7 @@ export function AuthLayout({ children }) {
         <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/50">Strength · Control · Elegance</p>
       </div>
 
-      <div className="scroll-area flex flex-1 flex-col">
+      <div className="scroll-area pt-safe pb-safe flex flex-1 flex-col">
         <div className="stagger-in mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-6 py-10">
           <div className="mb-10 flex flex-col items-center lg:hidden">
             <Logo size="lg" />
@@ -86,9 +88,8 @@ export function PrivacyCheck({ checked, onChange, onOpen, error }) {
   )
 }
 
-/** Primera vez con Google: faltan el WhatsApp y aceptar el aviso de privacidad. */
-function GoogleDetails({ pending, onCancel, onOpenPrivacy }) {
-  const { google } = useAuth()
+/** Primera vez con Google o Apple: faltan el WhatsApp y aceptar el aviso de privacidad. */
+function SocialDetails({ pending, onCancel, onOpenPrivacy }) {
   const navigate = useNavigate()
   const [whatsapp, setWhatsapp] = useState('')
   const [accept, setAccept] = useState(false)
@@ -103,7 +104,7 @@ function GoogleDetails({ pending, onCancel, onOpenPrivacy }) {
     setBusy(true)
     setError(null)
     try {
-      await google(pending.credential, { whatsapp, acceptPrivacy: true })
+      await pending.retry({ whatsapp, acceptPrivacy: true })
       navigate('/admision', { replace: true })
     } catch (err) {
       setError(err)
@@ -115,7 +116,9 @@ function GoogleDetails({ pending, onCancel, onOpenPrivacy }) {
     <>
       <h1 className="display text-[38px] text-ink">Un último paso</h1>
       <p className="mt-2 text-[15px] text-ink-2">
-        Vas a crear tu cuenta con <span className="font-semibold text-ink">{pending.email}</span>. Solo nos falta tu WhatsApp.
+        {pending.email
+          ? <>Vas a crear tu cuenta con <span className="font-semibold text-ink">{pending.email}</span>. Solo nos falta tu WhatsApp.</>
+          : 'Solo nos falta tu WhatsApp para crear tu cuenta.'}
       </p>
       <form onSubmit={submit} className="mt-7 space-y-4" noValidate>
         <Field label="WhatsApp" hint="Si no es de Costa Rica, incluye el código de país (+1, +34…)." error={fieldError('whatsapp')}>
@@ -133,7 +136,7 @@ function GoogleDetails({ pending, onCancel, onOpenPrivacy }) {
 }
 
 export default function AuthScreen() {
-  const { login, register, google } = useAuth()
+  const { login, register, google, apple } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState('login')
   const [form, setForm] = useState({ fullName: '', email: '', whatsapp: '', password: '', acceptPrivacy: false })
@@ -141,17 +144,24 @@ export default function AuthScreen() {
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
   const [privacyOpen, setPrivacyOpen] = useState(false)
-  const [googlePending, setGooglePending] = useState(null) // { credential, email } mientras faltan datos
+  const [pending, setPending] = useState(null) // { email, retry(datos) } mientras faltan datos de Google o Apple
 
-  const onGoogle = async (credential) => {
+  // Entra con Google o Apple; si es la primera vez, pide los datos que faltan y reintenta con ellos.
+  const social = (signIn) => async (credential) => {
     setError(null)
     try {
-      await google(credential)
+      await signIn(credential)
     } catch (err) {
-      if (err.code === 'SIGNUP_DETAILS_REQUIRED') setGooglePending({ credential, email: err.data?.email })
-      else setError(err)
+      if (err.code === 'SIGNUP_DETAILS_REQUIRED') {
+        setPending({
+          email: err.data?.email,
+          retry: (extra) => signIn(credential, extra),
+        })
+      } else setError(err)
     }
   }
+  const onGoogle = social(google)
+  const onApple = social(apple)
 
   const set = (key) => (e) => {
     setForm((f) => ({ ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }))
@@ -178,10 +188,10 @@ export default function AuthScreen() {
     }
   }
 
-  if (googlePending) {
+  if (pending) {
     return (
       <AuthLayout>
-        <GoogleDetails pending={googlePending} onCancel={() => setGooglePending(null)} onOpenPrivacy={() => setPrivacyOpen(true)} />
+        <SocialDetails pending={pending} onCancel={() => setPending(null)} onOpenPrivacy={() => setPrivacyOpen(true)} />
         <Sheet open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Aviso de privacidad" size="sm">
           <PrivacyNotice />
         </Sheet>
@@ -271,7 +281,9 @@ export default function AuthScreen() {
             </Button>
           </form>
 
-          <GoogleButton onCredential={onGoogle} />
+          {isNative
+            ? <NativeSignIn onApple={onApple} onGoogle={onGoogle} onError={setError} />
+            : <GoogleButton onCredential={onGoogle} />}
 
           {!isRegister && (
             <p className="mt-6 text-center text-sm text-ink-3">

@@ -2,10 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-export default defineConfig({
+// `vite build --mode native` gera o app do iPhone (Capacitor): sem service worker, que o WKWebView não usa,
+// e com a API apontando para o servidor publicado (VITE_API_URL em .env.native).
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    VitePWA({
+    mode !== 'native' && VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'logo-beige.svg', 'logo-white.svg'],
       manifest: {
@@ -41,4 +43,4 @@ export default defineConfig({
     // API_PORT permite que las pruebas de interfaz usen su propia API.
     proxy: { '/api': `http://127.0.0.1:${process.env.API_PORT || 3001}` },
   },
-})
+}))

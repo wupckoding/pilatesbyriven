@@ -1,4 +1,7 @@
-// Cliente HTTP de la API. En desarrollo Vite redirige /api al servidor local.
+// Cliente HTTP de la API. En desarrollo Vite redirige /api al servidor local;
+// en el app de iPhone VITE_API_URL apunta al servidor publicado.
+import { isNative, shareFile } from './native'
+
 const BASE = import.meta.env.VITE_API_URL ?? ''
 const TOKEN_KEY = 'pbr_token'
 
@@ -62,7 +65,10 @@ async function download(path, params, filename) {
     const data = await res.json().catch(() => ({}))
     throw new ApiError(data.error || 'No se pudo generar el archivo', { status: res.status, code: data.code, data })
   }
-  const url = URL.createObjectURL(await res.blob())
+  const blob = await res.blob()
+  // En el iPhone no hay "descargas": el archivo se ofrece con la hoja de compartir.
+  if (isNative) return shareFile(blob, filename)
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
   link.download = filename
@@ -84,7 +90,12 @@ async function openFile(path) {
     const data = await res.json().catch(() => ({}))
     throw new ApiError(data.error || 'No se pudo abrir el archivo', { status: res.status, code: data.code, data })
   }
-  const url = URL.createObjectURL(await res.blob())
+  const blob = await res.blob()
+  if (isNative) {
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/heic': 'heic', 'application/pdf': 'pdf' }[blob.type] || 'bin'
+    return shareFile(blob, `comprobante.${ext}`)
+  }
+  const url = URL.createObjectURL(blob)
   window.open(url, '_blank', 'noopener')
   setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }

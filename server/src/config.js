@@ -5,6 +5,8 @@ import dotenv from 'dotenv'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 dotenv.config({ path: join(root, '.env') })
 
+const list = (value) => (value || '').split(',').map((s) => s.trim()).filter(Boolean)
+
 const env = process.env.NODE_ENV || 'development'
 const isTest = env === 'test'
 const isProd = env === 'production'
@@ -42,6 +44,16 @@ export const config = {
   },
   // ID de cliente OAuth de Google (público). Vacío = sin botón de Google.
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  // Otros IDs de cliente de Google aceptados (el del app de iPhone), separados por coma.
+  googleExtraClientIds: list(process.env.GOOGLE_IOS_CLIENT_ID),
+  apple: {
+    // Bundle ID del app de iPhone: es la "audiencia" de los tokens de Apple.
+    clientIds: list(process.env.APPLE_CLIENT_IDS ?? 'com.pilatesbyriven.app'),
+    // Opcional: llave .p8 de "Sign in with Apple" para revocar el acceso al eliminar la cuenta.
+    teamId: process.env.APPLE_TEAM_ID || '',
+    keyId: process.env.APPLE_KEY_ID || '',
+    privateKey: (process.env.APPLE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+  },
   intakeKey,
   uploadsDir: process.env.UPLOADS_DIR || join(root, 'uploads'),
   env,
@@ -52,7 +64,8 @@ export const config = {
   databaseUrl,
   jwtSecret,
   jwtTtl: '7d',
-  corsOrigins: (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean),
+  // El app de iPhone (Capacitor) llama a la API desde el origen capacitor://localhost.
+  corsOrigins: [...new Set([...list(process.env.CORS_ORIGIN), 'capacitor://localhost'])],
   timezone: 'America/Costa_Rica',
   admin: {
     email: process.env.ADMIN_EMAIL || '',

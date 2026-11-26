@@ -75,7 +75,7 @@ after(async () => {
 
 test('la configuración pública dice si hay Google y si se confirma el correo', async () => {
   const cfg = ok(await call('GET', '/api/auth/config'))
-  assert.deepEqual(cfg, { googleClientId: process.env.GOOGLE_CLIENT_ID, emailVerification: true })
+  assert.deepEqual(cfg, { googleClientId: process.env.GOOGLE_CLIENT_ID, appleSignIn: true, emailVerification: true })
 })
 
 test('una cuenta nueva no tiene ficha ni puede usar la app hasta confirmar el correo', async () => {

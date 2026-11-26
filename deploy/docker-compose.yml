@@ -54,6 +54,12 @@ services:
       MAIL_FROM: ${MAIL_FROM:-}
       # Acceso con Google. Vacío = sin botón de Google.
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      # App de iPhone: ID de cliente iOS del Google y llave de "Sign in with Apple" (revocación al eliminar cuenta).
+      GOOGLE_IOS_CLIENT_ID: ${GOOGLE_IOS_CLIENT_ID:-}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-com.pilatesbyriven.app}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       UPLOADS_DIR: /data/uploads
     volumes:
       - uploads:/data/uploads

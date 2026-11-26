@@ -72,7 +72,7 @@ export function createApp() {
   app.use('/api/auth/login', limiter(20, 15 * 60_000, { skipSuccessfulRequests: true }))
   // Registro: solo cuentan las cuentas que sí se crean; un formulario con errores no gasta intentos.
   app.use('/api/auth/register', limiter(10, 15 * 60_000, { skipFailedRequests: true }))
-  app.use(['/api/auth/google', '/api/auth/verify-email', '/api/auth/resend-code'], limiter(30, 15 * 60_000))
+  app.use(['/api/auth/google', '/api/auth/apple', '/api/auth/verify-email', '/api/auth/resend-code'], limiter(30, 15 * 60_000))
 
   // Lo consulta Docker para saber si la app está sana: responde 503 si no hay base de datos.
   app.get('/api/health', async (_req, res) => {

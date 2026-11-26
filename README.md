@@ -21,7 +21,7 @@
 ![PWA](https://img.shields.io/badge/PWA-2B221D?style=flat-square&logo=pwa&logoColor=C19C80)
 ![Docker](https://img.shields.io/badge/Docker_·_Caddy-2B221D?style=flat-square&logo=docker&logoColor=C19C80)
 
-![Testes](https://img.shields.io/badge/testes_do_servidor-67_✓-5F7556?style=flat-square)
+![Testes](https://img.shields.io/badge/testes_do_servidor-76_✓-5F7556?style=flat-square)
 ![Interface](https://img.shields.io/badge/testes_de_interface-40_✓-5F7556?style=flat-square)
 ![Simulação](https://img.shields.io/badge/simulação-1000_usuárias-5F7556?style=flat-square)
 
@@ -110,7 +110,7 @@
 
 | Camada | Como | Resultado |
 |---|---|---|
-| **Servidor** | `node:test` contra PostgreSQL real | **67 testes** ✓ |
+| **Servidor** | `node:test` contra PostgreSQL real | **76 testes** ✓ |
 | **Interface** | Playwright em computador (1440 px) e celular (Pixel 7) | **40 cenários** ✓ |
 | **Carga** | 1000 clientas virtuais simultâneas + 3 admins, 17 regras conferidas no banco | ✓ |
 | **Uso real** | Agentes usando o app como clienta nova, clienta com rede ruim e a dona do estúdio | defeitos corrigidos |
@@ -169,6 +169,20 @@ node e2e/smoke.mjs https://app.pilatesbyriven.com       # confere o endereço pu
 
 O roteiro completo, com backup, restauração, e-mail e Google, está em [deploy/README.md](deploy/README.md).
 
+## 📱 App de iPhone
+
+O mesmo app, empacotado com **Capacitor**, com login nativo "Continuar con Apple" e "Continuar con Google", folha de compartilhar do iOS
+e tela de arranque da marca. O projeto do Xcode está em `ios/`. Num Mac:
+
+```bash
+npm install
+npm run build:ios   # compila as telas e copia para o projeto iOS
+npm run ios         # abre no Xcode
+```
+
+O passo a passo até a App Store (conta Apple, Xcode, Google no iPhone, cadastro, capturas, envio e riscos de recusa) está em
+**[docs/APP_STORE.md](docs/APP_STORE.md)**.
+
 ## 🗺️ Estrutura
 
 ```
@@ -198,7 +212,7 @@ docs/screens/         capturas deste README
 | **3** | Admissão e consentimento criptografados, compra pela clienta, comprovante SINPE | ✅ |
 | **4** | Testes de carga, interface e agentes · publicação na VPS · abertura animada | ✅ |
 | | Confirmação de e-mail e Google (prontos, aguardam SMTP e client ID) | 🟡 |
-| | App iPhone na App Store | ⏳ |
+| | App iPhone: projeto e login com Apple prontos; falta compilar no Mac e enviar | 🟡 |
 
 O histórico dia a dia e a lista completa do que falta estão em **[HISTORICO.md](HISTORICO.md)**.
 

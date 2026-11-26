@@ -65,6 +65,23 @@ Requisitos: documento "Requisitos App Pilates by Riven" entregue pela cliente.
   - Dois tons de texto tinham contraste baixo.
 - Testes: 67 no servidor, 40 de interface. Tudo publicado na VPS.
 
+## 26/11/2026
+
+**App de iPhone (preparação para a App Store).**
+- Projeto iOS com Capacitor em `ios/`:
+  - Bundle `com.pilatesbyriven.app`, só iPhone e só retrato.
+  - Ícone, tela de arranque da marca, permissões de câmera e fotos para o comprovante.
+- "Continuar con Apple" (exigido pela Apple quando há Google) e "Continuar con Google" nativos no app.
+  - O servidor valida os tokens da Apple e aceita o ID de cliente iOS do Google.
+  - Ao excluir a conta, o acesso na Apple é revogado (quando a chave `.p8` estiver configurada).
+- O CORS do servidor libera o app (`capacitor://localhost`).
+- Páginas públicas `/privacidad` e `/soporte`, exigidas pela App Store.
+- No iPhone, exportações e comprovantes abrem a folha de compartilhar.
+- Capturas no tamanho da App Store (1320 × 2868) em `docs/app-store/`; roteiro completo em `docs/APP_STORE.md`.
+- Corrigido um teste que falhava à noite (usava a data UTC em vez da da Costa Rica).
+- Testes: 76 no servidor, 40 de interface.
+- **Falta (no Mac):** conta Apple Developer, compilar no Xcode, cadastro no App Store Connect e envio. Antes disso, publicar o servidor desta versão.
+
 ## Pendências
 
 **Do lado da cliente ou do desenvolvedor:**
@@ -100,4 +117,4 @@ Requisitos: documento "Requisitos App Pilates by Riven" entregue pela cliente.
 
 **Próximas etapas:**
 - Recuperação de senha por e-mail.
-- App para iPhone na App Store: precisa de um Mac ou de build na nuvem, conta Apple Developer, "Iniciar sessão com a Apple" e plugin nativo do Google.
+- App para iPhone: compilar no Mac e enviar à App Store (ver docs/APP_STORE.md).

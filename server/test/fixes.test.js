@@ -95,7 +95,8 @@ test('agregar a una clase a quien ya está avisa que no se creó otra reserva', 
 
 test('el CSV de pagos deja los reembolsos como números negativos, no como texto', async () => {
   const { clients } = ok(await call('GET', '/api/admin/clients?status=all&search=camila'))
-  const today = new Date().toISOString().slice(0, 10)
+  // Fecha de Costa Rica: de noche la fecha UTC ya es "mañana" y el servidor la rechaza por futura.
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Costa_Rica' }).format(new Date())
   const pay = ok(await call('POST', '/api/admin/payments', { body: { clientId: clients[0].id, amountCents: 3000, currency: 'USD', method: 'sinpe', receivedOn: today, verified: true, idempotencyKey: crypto.randomUUID() } }), 201)
   const paymentId = pay.payment?.id || pay.id
   ok(await call('POST', `/api/admin/payments/${paymentId}/refund`, { body: { amountCents: 3000, reason: 'Prueba', refundedOn: today, idempotencyKey: crypto.randomUUID() } }), 201)

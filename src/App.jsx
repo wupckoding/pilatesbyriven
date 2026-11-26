@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { AnimatePresence, MotionConfig } from 'framer-motion'
 import Intro, { shouldShowIntro } from './app/Intro'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { WifiOff } from 'lucide-react'
 import { useAuth } from './lib/auth'
 import { Button, EmptyState, Logo } from './ui'
 import Shell from './app/Shell'
 import AuthScreen from './screens/AuthScreen'
 import VerifyEmail from './screens/VerifyEmail'
+import PublicPage from './screens/PublicPage'
 import AdminHome from './screens/admin/Home'
 import Agenda from './screens/admin/Agenda'
 import Bookings from './screens/admin/Bookings'
@@ -52,8 +53,14 @@ export default function App() {
   )
 }
 
+const PUBLIC = { '/privacidad': 'privacidad', '/soporte': 'soporte' }
+
 function Screens() {
   const { status, user } = useAuth()
+  const { pathname } = useLocation()
+
+  // Páginas públicas (direcciones de privacidad y soporte de la App Store): se ven con o sin sesión.
+  if (PUBLIC[pathname]) return <PublicPage page={PUBLIC[pathname]} />
 
   if (status === 'loading') return <Splash />
   if (status === 'offline') {

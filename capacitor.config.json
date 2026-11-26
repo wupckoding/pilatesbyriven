@@ -1,0 +1,27 @@
+{
+  "appId": "com.pilatesbyriven.app",
+  "appName": "Pilates by Riven",
+  "webDir": "dist",
+  "backgroundColor": "#F5F0E8",
+  "ios": {
+    "contentInset": "never",
+    "scheme": "Pilates by Riven",
+    "backgroundColor": "#F5F0E8",
+    "limitsNavigationsToAppBoundDomains": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 0,
+      "launchAutoHide": false,
+      "backgroundColor": "#F5F0E8",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "overlaysWebView": true
+    },
+    "SocialLogin": {
+      "providers": { "google": true, "apple": true, "facebook": false, "twitter": false }
+    }
+  }
+}

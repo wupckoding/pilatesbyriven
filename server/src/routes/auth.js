@@ -11,7 +11,8 @@ import { config } from '../config.js'
 import {
   CODE_TTL_MIN, completeSignup, sendVerificationCode, verificationRequired, verifyEmailCode,
 } from '../services/verification.js'
-import { googleEnabled, verifyGoogleCredential } from '../services/google.js'
+import { verifyGoogleCredential } from '../services/google.js'
+import { appleEnabled, appleRefreshToken, revokeAppleToken, verifyAppleCredential } from '../services/apple.js'
 
 const router = Router()
 // Hash de relleno: el login tarda lo mismo exista o no la cuenta.
@@ -22,7 +23,7 @@ const password = z.string({ required_error: 'Escribe una contraseña' })
 const email = z.string({ required_error: 'Escribe tu correo' }).trim().toLowerCase().email('Correo inválido').max(254)
 const acceptPrivacy = z.literal(true, { errorMap: () => ({ message: 'Debes aceptar el aviso de privacidad' }) })
 
-const USER_COLS = 'id, email, role, full_name, token_version, is_active, email_verified_at, password_hash, google_sub'
+const USER_COLS = 'id, email, role, full_name, token_version, is_active, email_verified_at, password_hash, google_sub, apple_sub'
 const loadUser = (id) => db.one(`select ${USER_COLS} from users where id = $1`, [id])
 
 const publicUser = (u) => ({
@@ -34,6 +35,7 @@ const publicUser = (u) => ({
   emailVerified: u.role !== 'client' || Boolean(u.emailVerifiedAt) || !verificationRequired(),
   hasPassword: Boolean(u.passwordHash),
   google: Boolean(u.googleSub),
+  apple: Boolean(u.appleSub),
 })
 
 const clientOf = (userId) => db.one(
@@ -65,7 +67,7 @@ const emailTaken = () => new HttpError(409, 'Ya existe una cuenta con este corre
 
 // Lo que la pantalla de acceso necesita saber antes de iniciar sesión.
 router.get('/config', (_req, res) => {
-  res.json({ googleClientId: config.googleClientId || null, emailVerification: verificationRequired() })
+  res.json({ googleClientId: config.googleClientId || null, appleSignIn: appleEnabled(), emailVerification: verificationRequired() })
 })
 
 router.post('/register', h(async (req, res) => {
@@ -82,14 +84,14 @@ router.post('/register', h(async (req, res) => {
   const hash = await hashPassword(body.password)
   const user = await tx(async (t) => {
     const existing = await t.one(
-      `select u.id, u.role, u.is_active, u.email_verified_at, u.google_sub,
+      `select u.id, u.role, u.is_active, u.email_verified_at, u.google_sub, u.apple_sub,
               exists (select 1 from clients c where c.user_id = u.id) as has_client
          from users u where u.email = $1 for update`, [body.email])
     let created
     if (existing) {
       // Un registro que nunca confirmó su correo no bloquea a quien sí es dueña de ese correo.
       const pending = required && existing.role === 'client' && existing.isActive
-        && !existing.emailVerifiedAt && !existing.googleSub && !existing.hasClient
+        && !existing.emailVerifiedAt && !existing.googleSub && !existing.appleSub && !existing.hasClient
       if (!pending) throw emailTaken()
       created = await t.one(
         `update users set password_hash = $2, full_name = $3, signup_whatsapp = $4,
@@ -128,54 +130,65 @@ router.post('/login', h(async (req, res) => {
   res.json({ token: signToken(user), ...(await sessionPayload(user.id)) })
 }))
 
-// Acceso con Google. La primera vez pide WhatsApp y aceptar el aviso de privacidad.
-router.post('/google', h(async (req, res) => {
-  const body = parse(z.object({
-    credential: z.string({ required_error: 'Falta la credencial de Google' }).min(20).max(4096),
-    whatsapp: z.string().trim().max(40).optional(),
-    acceptPrivacy: z.boolean().optional(),
-  }), req.body)
-  const google = await verifyGoogleCredential(body.credential)
+// Acceso con Google o Apple. La primera vez pide WhatsApp y aceptar el aviso de privacidad.
+const PROVIDERS = {
+  google: { column: 'google_sub', label: 'Google' },
+  apple: { column: 'apple_sub', label: 'Apple' },
+}
+const detailsRequired = (identity) => new HttpError(409, 'Completa tus datos para crear tu cuenta', 'SIGNUP_DETAILS_REQUIRED',
+  { email: identity.email, fullName: identity.name })
 
+/**
+ * identity: { sub, email, name } ya validados con el proveedor. extra: columnas que se guardan junto al vínculo.
+ * Busca la cuenta por el vínculo con el proveedor; si no hay, por el correo (y la vincula); si tampoco, la crea.
+ */
+async function socialSignIn(provider, identity, body, extra = {}) {
+  const { column, label } = PROVIDERS[provider]
   const inactive = () => new HttpError(401, 'Esta cuenta no está disponible', 'BAD_CREDENTIALS')
-  let user = await db.one(`select ${USER_COLS} from users where google_sub = $1`, [google.sub])
-  if (user && !user.isActive) throw inactive()
+  const extraCols = Object.keys(extra)
+  const extraVals = Object.values(extra)
+  const setExtra = (offset) => extraCols.map((c, i) => `, ${c} = coalesce($${offset + i}, ${c})`).join('')
 
-  if (!user) {
-    const byEmail = await db.one(`select ${USER_COLS} from users where email = $1`, [google.email])
+  let user = await db.one(`select ${USER_COLS} from users where ${column} = $1`, [identity.sub])
+  if (user && !user.isActive) throw inactive()
+  if (user) {
+    if (extraCols.length) await db.run(`update users set updated_at = now()${setExtra(2)} where id = $1`, [user.id, ...extraVals])
+  } else {
+    // Apple entrega el correo solo mientras el app está autorizado; sin correo no se puede crear ni vincular.
+    if (!identity.email) {
+      throw new HttpError(400, `No recibimos tu correo de ${label}. En Ajustes del iPhone › tu nombre › Iniciar sesión con Apple, quita Pilates by Riven y vuelve a intentarlo`, 'EMAIL_REQUIRED')
+    }
+    const byEmail = await db.one(`select ${USER_COLS} from users where email = $1`, [identity.email])
     if (byEmail && !byEmail.isActive) throw inactive()
     if (byEmail) {
-      // Google confirma que el correo es suyo: se vincula a la cuenta existente.
+      // El proveedor confirma que el correo es suyo: se vincula a la cuenta existente.
       // Si esa cuenta nunca confirmó el correo, su contraseña pudo ponerla otra persona: se anula.
       const untrusted = byEmail.role === 'client' && !byEmail.emailVerifiedAt
-      if (untrusted && !body.acceptPrivacy) {
-        throw new HttpError(409, 'Completa tus datos para crear tu cuenta', 'SIGNUP_DETAILS_REQUIRED', { email: google.email, fullName: google.name })
-      }
+      if (untrusted && !body.acceptPrivacy) throw detailsRequired(identity)
       const whatsapp = untrusted ? parseWhatsapp(body.whatsapp || '') : null
       user = await tx(async (t) => {
         const linked = await t.one(
-          `update users set google_sub = $2,
+          `update users set ${column} = $2,
                   password_hash = case when $3 then '' else password_hash end,
                   signup_whatsapp = case when $3 then $4 else signup_whatsapp end,
                   full_name = case when $3 and $5 <> '' then $5 else full_name end,
                   token_version = token_version + case when $3 then 1 else 0 end,
-                  updated_at = now()
+                  updated_at = now()${setExtra(6)}
             where id = $1 returning ${USER_COLS}`,
-          [byEmail.id, google.sub, untrusted, whatsapp, google.name])
+          [byEmail.id, identity.sub, untrusted, whatsapp, identity.name, ...extraVals])
         if (untrusted) await completeSignup(t, linked.id)
-        await audit(t, linked.id, 'auth.google_link', 'user', linked.id)
+        await audit(t, linked.id, `auth.${provider}_link`, 'user', linked.id)
         return linked
       })
     } else {
-      if (body.acceptPrivacy !== true || !body.whatsapp) {
-        throw new HttpError(409, 'Completa tus datos para crear tu cuenta', 'SIGNUP_DETAILS_REQUIRED', { email: google.email, fullName: google.name })
-      }
+      if (body.acceptPrivacy !== true || !body.whatsapp) throw detailsRequired(identity)
       const whatsapp = parseWhatsapp(body.whatsapp)
+      const fullName = (identity.name || identity.email.split('@')[0]).trim()
       user = await tx(async (t) => {
         const created = await t.one(
-          `insert into users (email, password_hash, role, full_name, google_sub, signup_whatsapp, email_verified_at)
-           values ($1, '', 'client', $2, $3, $4, now()) returning ${USER_COLS}`,
-          [google.email, google.name || google.email.split('@')[0], google.sub, whatsapp])
+          `insert into users (email, password_hash, role, full_name, ${column}, signup_whatsapp, email_verified_at${extraCols.map((c) => `, ${c}`).join('')})
+           values ($1, '', 'client', $2, $3, $4, now()${extraCols.map((_, i) => `, $${5 + i}`).join('')}) returning ${USER_COLS}`,
+          [identity.email, fullName, identity.sub, whatsapp, ...extraVals])
         await completeSignup(t, created.id)
         return created
       }).catch((err) => {
@@ -185,6 +198,36 @@ router.post('/google', h(async (req, res) => {
     }
   }
   await db.run('update users set last_login_at = now() where id = $1', [user.id])
+  return user
+}
+
+const signupDetails = {
+  whatsapp: z.string().trim().max(40).optional(),
+  acceptPrivacy: z.boolean().optional(),
+}
+
+router.post('/google', h(async (req, res) => {
+  const body = parse(z.object({
+    credential: z.string({ required_error: 'Falta la credencial de Google' }).min(20).max(4096),
+    ...signupDetails,
+  }), req.body)
+  const google = await verifyGoogleCredential(body.credential)
+  const user = await socialSignIn('google', google, body)
+  res.json({ token: signToken(user), ...(await sessionPayload(user.id)) })
+}))
+
+// Iniciar sesión con Apple (app de iPhone). Apple manda el nombre solo la primera vez, fuera del token.
+router.post('/apple', h(async (req, res) => {
+  const body = parse(z.object({
+    identityToken: z.string({ required_error: 'Falta la credencial de Apple' }).min(20).max(4096),
+    authorizationCode: z.string().max(1024).optional(),
+    fullName: z.string().trim().max(120).optional(),
+    ...signupDetails,
+  }), req.body)
+  const apple = await verifyAppleCredential(body.identityToken)
+  const refresh = await appleRefreshToken(body.authorizationCode, apple.clientId)
+  const user = await socialSignIn('apple', { ...apple, name: body.fullName || '' }, body,
+    refresh ? { apple_refresh_token: refresh } : {})
   res.json({ token: signToken(user), ...(await sessionPayload(user.id)) })
 }))
 
@@ -262,14 +305,14 @@ router.post('/change-password', requireAuth, h(async (req, res) => {
 router.delete('/me', requireAuth, h(async (req, res) => {
   const body = parse(z.object({ password: z.string().max(128).optional(), confirm: z.string().max(20).optional() }), req.body)
   if (req.user.role === 'admin') throw new HttpError(409, 'La cuenta de administración no se elimina desde la app', 'NOT_ALLOWED')
-  const row = await db.one('select password_hash from users where id = $1', [req.user.id])
+  const row = await db.one('select password_hash, apple_refresh_token from users where id = $1', [req.user.id])
   if (row.passwordHash) {
     if (!body.password) throw new HttpError(400, 'Escribe tu contraseña para confirmar', 'VALIDATION', { field: 'password' })
     if (!(await verifyPassword(body.password, row.passwordHash)).ok) {
       throw new HttpError(401, 'La contraseña no es correcta', 'BAD_CREDENTIALS', { field: 'password' })
     }
   } else if ((body.confirm || '').trim().toUpperCase() !== 'ELIMINAR') {
-    // Cuenta de Google sin contraseña: se confirma escribiendo la palabra.
+    // Cuenta de Google o Apple sin contraseña: se confirma escribiendo la palabra.
     throw new HttpError(400, 'Escribe ELIMINAR para confirmar', 'VALIDATION', { field: 'confirm' })
   }
   await tx(async (t) => {
@@ -286,10 +329,11 @@ router.delete('/me', requireAuth, h(async (req, res) => {
     await t.run(
       `update users set is_active = false, token_version = token_version + 1,
               email = 'eliminada+' || id || '@invalid.local', password_hash = '', full_name = '',
-              google_sub = null, signup_whatsapp = null, updated_at = now()
+              google_sub = null, apple_sub = null, apple_refresh_token = null, signup_whatsapp = null, updated_at = now()
         where id = $1`, [req.user.id])
     await audit(t, req.user.id, 'auth.delete_account', 'user', req.user.id)
   })
+  await revokeAppleToken(row.appleRefreshToken)
   res.json({ ok: true })
 }))
 

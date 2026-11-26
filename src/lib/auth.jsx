@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, getToken, setToken, setUnauthenticatedHandler } from './api'
+import { nativeSignOut } from './native'
 
 const AuthContext = createContext(null)
 
@@ -14,6 +15,7 @@ export function AuthProvider({ children }) {
     // Un borrador de admisión a medias no debe quedar en el dispositivo al salir.
     try { Object.keys(sessionStorage).filter((k) => k.startsWith('pbr_intake_draft_')).forEach((k) => sessionStorage.removeItem(k)) } catch { /* sin almacenamiento */ }
     queryClient.clear()
+    nativeSignOut()
     setState({ status: 'guest', user: null, client: null })
   }, [queryClient])
 
@@ -50,6 +52,8 @@ export function AuthProvider({ children }) {
       setState((s) => ({ ...s, user: { ...s.user, hasPassword: true } }))
     },
     google: async (credential, extra = {}) => accept(await api.post('/auth/google', { credential, ...extra })),
+    // payload: { identityToken, authorizationCode, fullName } de la ventana nativa de Apple
+    apple: async (payload, extra = {}) => accept(await api.post('/auth/apple', { ...payload, ...extra })),
     verifyEmail: async (code) => accept(await api.post('/auth/verify-email', { code })),
     resendCode: () => api.post('/auth/resend-code'),
     // confirmation: { password } o, en cuentas de Google sin contraseña, { confirm: 'ELIMINAR' }

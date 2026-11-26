@@ -9,6 +9,9 @@ import './index.css'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { ToastProvider } from './ui/Toast'
+import { startNative } from './lib/native'
+
+startNative()
 
 const queryClient = new QueryClient({
   defaultOptions: {

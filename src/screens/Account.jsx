@@ -33,7 +33,7 @@ function ChangePassword({ onClose }) {
       onClose={onClose}
       size="sm"
       title={hasPassword ? 'Cambiar contraseña' : 'Crear contraseña'}
-      subtitle={hasPassword ? 'Se cerrará la sesión en tus otros dispositivos.' : 'Entraste con Google. Con una contraseña también podrás entrar con tu correo.'}
+      subtitle={hasPassword ? 'Se cerrará la sesión en tus otros dispositivos.' : 'Entraste con Google o Apple. Con una contraseña también podrás entrar con tu correo.'}
       footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button loading={busy} onClick={submit}>Guardar</Button></>}
     >
       <form onSubmit={submit} className="space-y-4">
