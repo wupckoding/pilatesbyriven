@@ -369,6 +369,127 @@ export function PaymentSheet({ clientId, clientName, pkg, onClose }) {
   )
 }
 
+/**
+ * Corregir un pago mal registrado. Fecha, medio, referencia y nota siempre; el monto solo mientras
+ * no esté verificado. Anular lo deja en el historial, pero fuera de saldos y de Caja.
+ */
+export function PaymentFixSheet({ payment: y, onClose }) {
+  const toast = useToast()
+  const refresh = useRefreshMoney()
+  const today = todayCR()
+  const refund = y.kind === 'refund'
+  const amountEditable = !refund && y.status !== 'verified'
+  const [form, setForm] = useState({
+    amount: String(y.amountCents / 100), currency: y.currency, fxRate: y.fxRate ? String(Number(y.fxRate)) : '',
+    method: y.method, reference: y.reference || '', receivedOn: y.receivedOn || today, note: y.note || '',
+  })
+  const [voiding, setVoiding] = useState(false)
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState(null)
+  const set = (name) => (e) => { setForm((f) => ({ ...f, [name]: e.target.value })); setError(null) }
+  const fieldError = (name) => (error?.data?.field === name ? error.message : undefined)
+  const otherCurrency = y.packageId && y.packageCurrency && form.currency !== y.packageCurrency
+
+  const save = useMutation({
+    mutationFn: () => {
+      const body = { method: form.method, reference: form.reference.trim(), receivedOn: form.receivedOn, note: form.note.trim() }
+      if (amountEditable) {
+        const amountCents = parseMoney(form.amount)
+        if (!amountCents) throw Object.assign(new Error('Escribe un monto válido'), { data: { field: 'amountCents' } })
+        const fx = Number(form.fxRate)
+        Object.assign(body, { amountCents, currency: form.currency, fxRate: otherCurrency ? (fx > 0 ? fx : null) : null })
+      }
+      return api.patch(`/admin/payments/${y.id}`, body)
+    },
+    onSuccess: async () => { await refresh(); toast.success('Pago corregido'); onClose() },
+    onError: setError,
+  })
+  const voidIt = useMutation({
+    mutationFn: () => api.post(`/admin/payments/${y.id}/void`, { reason }),
+    onSuccess: async () => { await refresh(); toast.success(refund ? 'Reembolso anulado' : 'Pago anulado'); onClose() },
+  })
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={refund ? 'Corregir reembolso' : 'Corregir pago'}
+      subtitle={[y.fullName, y.packageName].filter(Boolean).join(' · ')}
+      footer={!voiding && (
+        <>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>Guardar cambios</Button>
+        </>
+      )}
+    >
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); save.mutate() }}>
+        {amountEditable ? (
+          <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
+            <Field label="Monto" error={fieldError('amountCents')}>
+              <Input inputMode="decimal" value={form.amount} onChange={set('amount')} />
+            </Field>
+            <Field label="Moneda">
+              <Select value={form.currency} onChange={set('currency')}>
+                <option value="USD">USD</option>
+                <option value="CRC">CRC ₡</option>
+              </Select>
+            </Field>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-sunken px-4 py-3">
+            <p className="display tnum text-2xl text-ink">{fmtMoney(refund ? -y.amountCents : y.amountCents, y.currency)}</p>
+            <p className="mt-0.5 text-[13px] text-ink-3">
+              {refund ? 'El monto de un reembolso no se edita: si está mal, anúlalo y regístralo de nuevo.' : 'Ya está verificado: si el monto está mal, anúlalo y regístralo de nuevo.'}
+            </p>
+          </div>
+        )}
+        {amountEditable && otherCurrency && (
+          <Field label="Tipo de cambio (colones por dólar)" error={fieldError('fxRate')}>
+            <Input inputMode="decimal" value={form.fxRate} onChange={set('fxRate')} placeholder="510" />
+          </Field>
+        )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Medio de pago">
+            <Select value={form.method} onChange={set('method')}>
+              {Object.entries(METHOD).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </Select>
+          </Field>
+          <Field label={refund ? 'Fecha del reembolso' : 'Fecha en que entró el dinero'} error={fieldError('receivedOn')}>
+            <Input type="date" max={today} value={form.receivedOn} onChange={set('receivedOn')} />
+          </Field>
+        </div>
+        <Field label="Referencia" optional>
+          <Input value={form.reference} onChange={set('reference')} placeholder="N.º de SINPE o comprobante" maxLength={120} />
+        </Field>
+        <Field label={refund ? 'Motivo' : 'Nota'} optional={!refund}>
+          <Input value={form.note} onChange={set('note')} maxLength={500} />
+        </Field>
+        <ErrorNote error={error} />
+        <button type="submit" hidden />
+      </form>
+
+      <div className="mt-6 border-t border-line pt-4">
+        {voiding ? (
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-ink">{refund ? 'Anular este reembolso' : 'Anular este pago'}</p>
+            <p className="text-[13px] text-ink-3">Queda en el historial con el motivo, pero deja de contar en el saldo del paquete, en Caja y en los totales.</p>
+            <Field label="Motivo" error={voidIt.error?.data?.field === 'reason' ? voidIt.error.message : undefined}>
+              <Input value={reason} onChange={(e) => { setReason(e.target.value); voidIt.reset() }} maxLength={300} placeholder="Registrado dos veces, monto equivocado…" autoFocus />
+            </Field>
+            <ErrorNote error={voidIt.error} />
+            <div className="flex gap-2">
+              <Button size="sm" variant="danger" loading={voidIt.isPending} onClick={() => voidIt.mutate()}>{refund ? 'Anular reembolso' : 'Anular pago'}</Button>
+              <Button size="sm" variant="ghost" onClick={() => setVoiding(false)}>Volver</Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" className="!text-terracotta" onClick={() => setVoiding(true)}>{refund ? 'Anular reembolso' : 'Anular pago'}</Button>
+        )}
+      </div>
+    </Sheet>
+  )
+}
+
 // ─── Detalle del paquete ─────────────────────────────────
 function PromptAction({ title, label, type = 'text', needReason = true, confirm, variant = 'primary', onSubmit, onClose, busy, error, hint }) {
   const [value, setValue] = useState('')
@@ -443,7 +564,7 @@ export function PackageSheet({ packageId, onClose }) {
   return (
     <>
       <Sheet
-        open={!!packageId && mode !== 'pay'}
+        open={!!packageId && mode !== 'pay' && targetKind !== 'fix'}
         onClose={close}
         size="lg"
         title={pkg ? pkg.name : 'Paquete'}
@@ -535,14 +656,14 @@ export function PackageSheet({ packageId, onClose }) {
                     {data.payments.map((y) => (
                       <div key={y.id} className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <p className={cx('display tnum text-xl', y.kind === 'refund' ? 'text-terracotta' : 'text-ink')}>{fmtMoney(y.kind === 'refund' ? -y.amountCents : y.amountCents, y.currency)}</p>
-                          <Badge tone={y.kind === 'refund' ? 'terracotta' : PAYMENT_STATUS[y.status].tone}>{y.kind === 'refund' ? 'Reembolso' : PAYMENT_STATUS[y.status].label}</Badge>
+                          <p className={cx('display tnum text-xl', y.status === 'voided' ? 'text-ink-3 line-through' : y.kind === 'refund' ? 'text-terracotta' : 'text-ink')}>{fmtMoney(y.kind === 'refund' ? -y.amountCents : y.amountCents, y.currency)}</p>
+                          <Badge tone={y.status === 'voided' ? PAYMENT_STATUS.voided.tone : y.kind === 'refund' ? 'terracotta' : PAYMENT_STATUS[y.status].tone}>{y.status === 'voided' ? (y.kind === 'refund' ? 'Reembolso anulado' : 'Anulado') : y.kind === 'refund' ? 'Reembolso' : PAYMENT_STATUS[y.status].label}</Badge>
                           <p className="tnum ml-auto text-[13px] text-ink-3">{METHOD[y.method]} · {y.receivedOn && shortDate(y.receivedOn)}</p>
                           {y.hasProof && <button type="button" className="text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => api.openFile(`/admin/payments/${y.id}/proof`).catch(toast.error)}>Ver comprobante</button>}
                         </div>
-                        {(y.reference || y.note || y.rejectReason || y.fxRate) && (
+                        {(y.reference || y.note || y.rejectReason || y.voidReason || y.fxRate) && (
                           <p className="mt-1 text-[13px] text-ink-3">
-                            {[y.reference && `Ref. ${y.reference}`, y.fxRate && `TC ₡${Number(y.fxRate)} → ${fmtMoney(y.appliedCents, pkg.currency)}`, y.note, y.rejectReason && `Rechazado: ${y.rejectReason}`].filter(Boolean).join(' · ')}
+                            {[y.reference && `Ref. ${y.reference}`, y.fxRate && `TC ₡${Number(y.fxRate)} → ${fmtMoney(y.appliedCents, pkg.currency)}`, y.note, y.rejectReason && `Rechazado: ${y.rejectReason}`, y.voidReason && `Anulado: ${y.voidReason}`].filter(Boolean).join(' · ')}
                           </p>
                         )}
                         {!mode && y.kind === 'payment' && y.status === 'to_verify' && (
@@ -551,8 +672,13 @@ export function PackageSheet({ packageId, onClose }) {
                             <Button size="sm" variant="ghost" onClick={() => setMode(`reject:${y.id}`)}>Rechazar</Button>
                           </div>
                         )}
-                        {!mode && y.kind === 'payment' && y.status === 'verified' && (
-                          <button type="button" className="mt-1 text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => setMode(`refund:${y.id}`)}>Reembolsar</button>
+                        {!mode && !['rejected', 'voided'].includes(y.status) && (
+                          <div className="mt-1 flex flex-wrap gap-x-4">
+                            {y.kind === 'payment' && y.status === 'verified' && y.refundedCents < y.amountCents && (
+                              <button type="button" className="inline-flex min-h-[36px] items-center text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => setMode(`refund:${y.id}`)}>Reembolsar</button>
+                            )}
+                            <button type="button" className="inline-flex min-h-[36px] items-center text-[13px] font-semibold text-clay-deep hover:underline" onClick={() => setMode(`fix:${y.id}`)}>Corregir o anular</button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -582,6 +708,7 @@ export function PackageSheet({ packageId, onClose }) {
           </div>
         )}
       </Sheet>
+      {targetKind === 'fix' && target && <PaymentFixSheet payment={target} onClose={() => setMode(null)} />}
       {mode === 'pay' && pkg && <PaymentSheet clientId={pkg.clientId} clientName={pkg.fullName} pkg={pkg} onClose={() => setMode(null)} />}
     </>
   )

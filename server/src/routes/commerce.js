@@ -108,11 +108,7 @@ router.get('/packages/:id', h(async (req, res) => {
     `select b.id, b.status, b.attendance, s.id as session_id, s.local_date, s.local_time, s.name, s.modality, s.status as session_status
        from bookings b join class_sessions s on s.id = b.session_id
       where b.package_id = $1 and b.status <> 'rescheduled' order by s.starts_at`, [id])
-  const payments = await db.query(
-    `select y.id, y.kind, y.amount_cents, y.currency, y.method, y.reference, y.status, y.received_on, y.note, y.reject_reason,
-            y.fx_rate, y.applied_cents, y.created_at, (y.proof_path is not null) as has_proof, u.full_name as verified_by_name
-       from payments y left join users u on u.id = y.verified_by
-      where y.package_id = $1 order by y.created_at`, [id])
+  const payments = await db.query(`${PAYMENT_SELECT} where y.package_id = $1 order by y.created_at`, [id])
   const order = await db.one('select reference, payment_link, created_by_client from client_packages where id = $1', [id])
   res.json({ package: { ...withCode(pkg), ...order }, bookings, payments })
 }))
@@ -247,7 +243,7 @@ router.patch('/packages/:id', h(async (req, res) => {
 // ─── PAGOS ─────────────────────────────────────────────
 const PAYMENT_SELECT = `
   select y.id, y.client_id, y.package_id, y.kind, y.related_payment_id, y.amount_cents, y.currency, y.method, y.reference,
-         y.status, y.received_on, y.verified_at, y.note, y.reject_reason, y.fx_rate, y.applied_cents, y.created_at,
+         y.status, y.received_on, y.verified_at, y.note, y.reject_reason, y.void_reason, y.voided_at, y.fx_rate, y.applied_cents, y.created_at,
          (y.proof_path is not null) as has_proof,
          c.full_name, c.student_number, c.whatsapp,
          p.name as package_name, p.currency as package_currency, p.starts_on as package_starts_on, g.name as group_name,
@@ -262,7 +258,7 @@ const PAYMENT_SELECT = `
 const paymentFilters = (query) => {
   const q = parse(z.object({
     from: ymd.optional(), to: ymd.optional(),
-    status: z.enum(['pending', 'to_verify', 'verified', 'rejected', 'all']).optional(),
+    status: z.enum(['pending', 'to_verify', 'verified', 'rejected', 'voided', 'all']).optional(),
     method: z.enum([...METHODS, 'all']).optional(),
     clientId: uuid.optional(), groupId: uuid.optional(),
     search: z.string().trim().max(80).optional(),
@@ -351,6 +347,7 @@ router.post('/payments/:id/verify', h(async (req, res) => {
     if (!y) throw new HttpError(404, 'Pago no encontrado', 'NOT_FOUND')
     if (y.status === 'verified') return // verificar dos veces no cambia nada
     if (y.status === 'rejected') throw new HttpError(409, 'Este pago fue rechazado', 'INVALID_STATE')
+    if (y.status === 'voided') throw new HttpError(409, 'Este pago está anulado', 'INVALID_STATE')
     await t.run(`update payments set status = 'verified', verified_by = $2, verified_at = now(), updated_at = now() where id = $1`, [id, req.user.id])
     await audit(t, req.user.id, 'payment.verify', 'payment', id)
     if (y.packageId) await settlePackage(t, y.packageId, req.user)
@@ -365,11 +362,83 @@ router.post('/payments/:id/reject', h(async (req, res) => {
   await tx(async (t) => {
     const y = await t.one('select * from payments where id = $1 for update', [id])
     if (!y) throw new HttpError(404, 'Pago no encontrado', 'NOT_FOUND')
-    if (y.status === 'verified') throw new HttpError(409, 'Un pago verificado se corrige con un reembolso', 'INVALID_STATE')
+    if (y.status === 'verified') throw new HttpError(409, 'Un pago verificado se anula o se reembolsa', 'INVALID_STATE')
+    if (y.status === 'voided') throw new HttpError(409, 'Este pago está anulado', 'INVALID_STATE')
     await t.run(`update payments set status = 'rejected', reject_reason = $2, updated_at = now() where id = $1`, [id, b.reason])
     await audit(t, req.user.id, 'payment.reject', 'payment', id, b)
   })
   res.json({ ok: true })
+}))
+
+// Corregir un pago mal escrito. Fecha, medio, referencia y nota siempre; el monto solo mientras
+// no esté verificado (uno verificado con monto equivocado se anula y se registra de nuevo).
+router.patch('/payments/:id', h(async (req, res) => {
+  const { id } = parse(z.object({ id: uuid }), req.params)
+  const b = parse(z.object({
+    amountCents: cents.optional(),
+    currency: currency.optional(),
+    fxRate: z.number().positive('Tipo de cambio inválido').max(100000).nullable().optional(),
+    method: z.enum(METHODS, { errorMap: () => ({ message: 'Medio de pago inválido' }) }).optional(),
+    reference: z.string().trim().max(120).optional(),
+    receivedOn: ymd.optional(),
+    note: z.string().trim().max(500).optional(),
+  }), req.body)
+  if (b.receivedOn && b.receivedOn > todayCR()) throw new HttpError(400, 'La fecha de recepción no puede ser futura', 'VALIDATION', { field: 'receivedOn' })
+  await tx(async (t) => {
+    const y = await t.one('select * from payments where id = $1 for update', [id])
+    if (!y) throw new HttpError(404, 'Pago no encontrado', 'NOT_FOUND')
+    if (y.status === 'rejected' || y.status === 'voided') throw new HttpError(409, 'Este pago ya no está vigente', 'INVALID_STATE')
+    const amountChanged = ['amountCents', 'currency', 'fxRate'].some((k) => b[k] !== undefined && b[k] !== y[k] && !(k === 'fxRate' && Number(b[k]) === Number(y[k])))
+    if (amountChanged && (y.status === 'verified' || y.kind !== 'payment')) {
+      throw new HttpError(409, 'El monto de un pago verificado no se edita: anúlalo y regístralo de nuevo', 'INVALID_STATE', { field: 'amountCents' })
+    }
+    const next = {
+      amountCents: b.amountCents ?? y.amountCents,
+      currency: b.currency ?? y.currency,
+      fxRate: b.fxRate !== undefined ? b.fxRate : (y.fxRate === null ? null : Number(y.fxRate)),
+      method: b.method ?? y.method,
+      reference: b.reference ?? y.reference,
+      receivedOn: b.receivedOn ?? y.receivedOn,
+      note: b.note ?? y.note,
+    }
+    let applied = y.appliedCents
+    if (amountChanged) {
+      const pkg = y.packageId ? await t.one('select currency from client_packages where id = $1', [y.packageId]) : null
+      applied = appliedAmount(next, pkg)
+      if (!pkg || pkg.currency === next.currency) next.fxRate = null
+    }
+    await t.run(
+      `update payments set amount_cents=$2, currency=$3, fx_rate=$4, applied_cents=$5, method=$6, reference=$7,
+              received_on=$8, note=$9, updated_at=now() where id=$1`,
+      [id, next.amountCents, next.currency, next.fxRate, applied, next.method, next.reference, next.receivedOn, next.note])
+    await audit(t, req.user.id, 'payment.update', 'payment', id, {
+      from: { amountCents: y.amountCents, currency: y.currency, fxRate: y.fxRate, method: y.method, reference: y.reference, receivedOn: y.receivedOn, note: y.note },
+      changes: b,
+    })
+  })
+  const payment = (await db.query(`${PAYMENT_SELECT} where y.id = $1`, [id]))[0]
+  res.json({ payment: withCode(payment) })
+}))
+
+// Anular: el registro queda visible con su motivo, pero deja de contar en saldos, Caja y totales.
+router.post('/payments/:id/void', h(async (req, res) => {
+  const { id } = parse(z.object({ id: uuid }), req.params)
+  const b = parse(z.object({ reason: z.string({ required_error: 'Indica el motivo' }).trim().min(2, 'Indica el motivo').max(300) }), req.body)
+  await tx(async (t) => {
+    const y = await t.one('select * from payments where id = $1 for update', [id])
+    if (!y) throw new HttpError(404, 'Pago no encontrado', 'NOT_FOUND')
+    if (y.status === 'voided') return // anular dos veces no cambia nada
+    if (y.status === 'rejected') throw new HttpError(409, 'Este pago fue rechazado', 'INVALID_STATE')
+    const refunds = await t.one(
+      `select count(*)::int as n from payments where related_payment_id = $1 and kind = 'refund' and status = 'verified'`, [id])
+    if (refunds.n > 0) throw new HttpError(409, 'Este pago tiene reembolsos: anúlalos primero', 'HAS_REFUNDS')
+    await t.run(
+      `update payments set status = 'voided', void_reason = $2, voided_by = $3, voided_at = now(), updated_at = now() where id = $1`,
+      [id, b.reason, req.user.id])
+    await audit(t, req.user.id, 'payment.void', 'payment', id, { reason: b.reason, previousStatus: y.status })
+  })
+  const payment = (await db.query(`${PAYMENT_SELECT} where y.id = $1`, [id]))[0]
+  res.json({ payment: withCode(payment) })
 }))
 
 // Reembolso: un registro nuevo ligado al pago original. El historial queda y los totales se corrigen.
@@ -518,7 +587,7 @@ const csv = (res, filename, header, rows) => {
 }
 const money = (centsValue) => (centsValue / 100).toFixed(2)
 const KIND_LABEL = { payment: 'Cobro', refund: 'Reembolso', adjustment: 'Ajuste', void: 'Anulación' }
-const STATUS_LABEL = { pending: 'Pendiente', to_verify: 'Por verificar', verified: 'Verificado', rejected: 'Rechazado' }
+const STATUS_LABEL = { pending: 'Pendiente', to_verify: 'Por verificar', verified: 'Verificado', rejected: 'Rechazado', voided: 'Anulado' }
 const METHOD_LABEL = { sinpe: 'SINPE', card: 'Tarjeta', cash: 'Efectivo', transfer: 'Transferencia', other: 'Otro' }
 
 router.get('/export/payments.csv', h(async (req, res) => {
@@ -530,7 +599,7 @@ router.get('/export/payments.csv', h(async (req, res) => {
     rows.map((y) => [y.receivedOn, KIND_LABEL[y.kind], STATUS_LABEL[y.status], formatStudentNumber(y.studentNumber), y.fullName,
       y.packageName, y.packageStartsOn, y.groupName, METHOD_LABEL[y.method], y.reference,
       money(y.kind === 'refund' ? -y.amountCents : y.amountCents), y.currency, y.fxRate, y.packageId ? money(y.kind === 'refund' ? -y.appliedCents : y.appliedCents) : '',
-      y.packageCurrency, y.verifiedByName, y.note || y.rejectReason, y.id, y.relatedPaymentId]))
+      y.packageCurrency, y.verifiedByName, y.voidReason ? `Anulado: ${y.voidReason}` : (y.note || y.rejectReason), y.id, y.relatedPaymentId]))
 }))
 
 router.get('/export/expenses.csv', h(async (req, res) => {

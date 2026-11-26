@@ -82,6 +82,17 @@ Requisitos: documento "Requisitos App Pilates by Riven" entregue pela cliente.
 - Testes: 76 no servidor, 40 de interface.
 - **Falta (no Mac):** conta Apple Developer, compilar no Xcode, cadastro no App Store Connect e envio. Antes disso, publicar o servidor desta versão.
 
+**Edição no painel.**
+- Aula: botão "Editar" muda nome, modalidade, tipo, data, hora, duração, vagas, instrutora e reserva aberta.
+  - Numa aula de grupo fixo, escolhe-se "Solo esta clase" ou "Esta y las siguientes".
+  - Ao mudar data ou hora de uma aula com reservas, aparece um botão de WhatsApp por clienta com o aviso pronto.
+  - Aula já começada não muda de data nem de dados; com reservas, o tipo não muda.
+- Aula suelta criada por engano e sem nenhuma reserva pode ser borrada; as demais se cancelam.
+- Pagamento: "Corregir" muda data, meio, referência e nota; o valor só enquanto não está verificado.
+- Pagamento ou reembolso pode ser anulado com motivo: fica no histórico, mas sai do saldo do pacote, da Caja e dos totais.
+- "Reembolsar" some quando o pagamento já foi reembolsado por inteiro.
+- Testes: 82 no servidor, 40 de interface.
+
 ## Pendências
 
 **Do lado da cliente ou do desenvolvedor:**
@@ -108,7 +119,6 @@ Requisitos: documento "Requisitos App Pilates by Riven" entregue pela cliente.
   - "Mover" usa uma lista longa.
   - Uma aula nova não leva à sua semana.
 - **Pagamentos no painel:**
-  - O botão de reembolso continua visível em pagamentos já reembolsados.
   - O valor de "Cobros" no Inicio é bruto, enquanto o de Pagos é líquido.
 - **Celular:**
   - Alguns textos e áreas de toque são pequenos.

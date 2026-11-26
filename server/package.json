@@ -13,7 +13,7 @@
     "seed": "node src/seed.js",
     "seed:demo": "node src/seed.js --demo",
     "simulate": "node sim/simulate.js",
-    "test": "node --test --test-concurrency=1 test/api.test.js test/commerce.test.js test/intake.test.js test/verification.test.js test/fixes.test.js test/apple.test.js"
+    "test": "node --test --test-concurrency=1 test/api.test.js test/commerce.test.js test/intake.test.js test/verification.test.js test/fixes.test.js test/apple.test.js test/editing.test.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -160,6 +160,7 @@ export const PAYMENT_STATUS = {
   to_verify: { label: 'Por verificar', tone: 'honey' },
   verified: { label: 'Verificado', tone: 'sage' },
   rejected: { label: 'Rechazado', tone: 'terracotta' },
+  voided: { label: 'Anulado', tone: 'neutral' },
 }
 
 export const EXPENSE_CATEGORIES = ['Alquiler', 'Equipo', 'Servicios', 'Limpieza', 'Marketing', 'Impuestos', 'Otro']

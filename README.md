@@ -21,7 +21,7 @@
 ![PWA](https://img.shields.io/badge/PWA-2B221D?style=flat-square&logo=pwa&logoColor=C19C80)
 ![Docker](https://img.shields.io/badge/Docker_·_Caddy-2B221D?style=flat-square&logo=docker&logoColor=C19C80)
 
-![Testes](https://img.shields.io/badge/testes_do_servidor-76_✓-5F7556?style=flat-square)
+![Testes](https://img.shields.io/badge/testes_do_servidor-82_✓-5F7556?style=flat-square)
 ![Interface](https://img.shields.io/badge/testes_de_interface-40_✓-5F7556?style=flat-square)
 ![Simulação](https://img.shields.io/badge/simulação-1000_usuárias-5F7556?style=flat-square)
 
@@ -79,8 +79,9 @@
 ### 🗂️ Para o estúdio
 - **Início do dia:** aulas de hoje, vagas e pendências
 - **Agenda** semanal, grupos fixos, presença com um toque
+- **Editar aulas** (só uma ou a série) e avisar as clientas por WhatsApp
 - **Clientas:** fichas, histórico, admissões a revisar
-- **Pacotes e pagamentos:** créditos, parciais, reembolsos, USD e CRC
+- **Pacotes e pagamentos:** créditos, parciais, reembolsos, correção e anulação, USD e CRC
 - **Caja** e fundo Lindora, exportação CSV
 - Papéis separados: **administração** e **instrutora**
 
@@ -110,7 +111,7 @@
 
 | Camada | Como | Resultado |
 |---|---|---|
-| **Servidor** | `node:test` contra PostgreSQL real | **76 testes** ✓ |
+| **Servidor** | `node:test` contra PostgreSQL real | **82 testes** ✓ |
 | **Interface** | Playwright em computador (1440 px) e celular (Pixel 7) | **40 cenários** ✓ |
 | **Carga** | 1000 clientas virtuais simultâneas + 3 admins, 17 regras conferidas no banco | ✓ |
 | **Uso real** | Agentes usando o app como clienta nova, clienta com rede ruim e a dona do estúdio | defeitos corrigidos |
@@ -187,7 +188,7 @@ O passo a passo até a App Store (conta Apple, Xcode, Google no iPhone, cadastro
 
 ```
 server/
-  migrations/         SQL versionado (001 núcleo … 005 confirmação de e-mail e Google)
+  migrations/         SQL versionado (001 núcleo … 007 anulação de pagamentos)
   src/routes/         auth, client (clienta), admin (painel), commerce (pacotes, pagamentos, Caja)
   src/services/       reservas, pacotes, sessões, ajustes, verification, google
   src/lib/mail.js     envio de e-mail (SMTP; em dev grava num arquivo)

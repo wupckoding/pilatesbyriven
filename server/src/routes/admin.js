@@ -167,6 +167,11 @@ router.post('/sessions', admin, h(async (req, res) => {
 router.patch('/sessions/:id', admin, h(async (req, res) => {
   const { id } = parse(z.object({ id: uuid }), req.params)
   const body = parse(z.object({
+    name: sessionFields.name.optional(),
+    modality: sessionFields.modality.optional(),
+    kind: sessionFields.kind.optional(),
+    durationMin: sessionFields.durationMin.optional(),
+    openBooking: sessionFields.openBooking.optional(),
     localDate: ymd.optional(), localTime: hhmm.optional(),
     capacity: sessionFields.capacity.optional(),
     instructorId: sessionFields.instructorId.optional(),
@@ -174,32 +179,61 @@ router.patch('/sessions/:id', admin, h(async (req, res) => {
     cancelReason: z.string().trim().max(300).optional(),
   }), req.body)
 
-  const session = await tx(async (t) => {
+  const result = await tx(async (t) => {
     const current = await t.one('select * from class_sessions where id = $1 for update', [id])
     if (!current) throw new HttpError(404, 'Clase no encontrada', 'NOT_FOUND')
-    if (body.capacity !== undefined) {
-      const { n } = await t.one(
-        `select count(*)::int as n from bookings where session_id = $1 and status in ('pending','confirmed')`, [id])
-      if (body.capacity < n) throw new HttpError(409, `Ya hay ${n} reservas: la capacidad no puede ser menor`, 'CAPACITY_BELOW_BOOKED')
+    const { n } = await t.one(
+      `select count(*)::int as n from bookings where session_id = $1 and status in ('pending','confirmed','waitlisted')`, [id])
+    const moved = (body.localDate !== undefined && body.localDate !== current.localDate)
+      || (body.localTime !== undefined && body.localTime !== current.localTime.slice(0, 5))
+    // Lo que ya ocurrió no se reescribe: una clase empezada solo cambia cupos, instructora o estado.
+    const started = new Date(current.startsAt) <= new Date()
+    const reshapes = ['name', 'modality', 'kind', 'durationMin'].some((k) => body[k] !== undefined && body[k] !== current[k])
+    if (started && (moved || reshapes)) throw new HttpError(409, 'Esta clase ya empezó: no se puede cambiar su fecha ni sus datos', 'SESSION_STARTED')
+    if (body.kind !== undefined && body.kind !== current.kind && n > 0) {
+      throw new HttpError(409, 'Ya tiene reservas: el tipo de clase no se puede cambiar', 'HAS_BOOKINGS', { field: 'kind' })
     }
+    if (body.capacity !== undefined) {
+      const { taken } = await t.one(
+        `select count(*)::int as taken from bookings where session_id = $1 and status in ('pending','confirmed')`, [id])
+      if (body.capacity < taken) throw new HttpError(409, `Ya hay ${taken} reservas: la capacidad no puede ser menor`, 'CAPACITY_BELOW_BOOKED', { field: 'capacity' })
+    }
+    const pick = (key) => (body[key] !== undefined ? body[key] : current[key])
     const next = {
-      localDate: body.localDate ?? current.localDate,
-      localTime: body.localTime ?? current.localTime,
-      capacity: body.capacity ?? current.capacity,
-      instructorId: body.instructorId !== undefined ? body.instructorId : current.instructorId,
-      status: body.status ?? current.status,
+      name: pick('name'), modality: pick('modality'), kind: pick('kind'), durationMin: pick('durationMin'), openBooking: pick('openBooking'),
+      localDate: pick('localDate'), localTime: pick('localTime'), capacity: pick('capacity'), instructorId: pick('instructorId'),
+      status: pick('status'),
       cancelReason: body.status === 'cancelled' ? (body.cancelReason ?? '') : (body.status === 'scheduled' ? '' : current.cancelReason),
     }
     const updated = await t.one(
       `update class_sessions set local_date = $2, local_time = $3,
               starts_at = ($2::date + $3::time) at time zone 'America/Costa_Rica',
-              capacity = $4, instructor_id = $5, status = $6, cancel_reason = $7, is_override = true, updated_at = now()
+              capacity = $4, instructor_id = $5, status = $6, cancel_reason = $7,
+              name = $8, modality = $9, kind = $10, duration_min = $11, open_booking = $12,
+              is_override = true, updated_at = now()
         where id = $1 returning *`,
-      [id, next.localDate, next.localTime, next.capacity, next.instructorId, next.status, next.cancelReason])
+      [id, next.localDate, next.localTime, next.capacity, next.instructorId, next.status, next.cancelReason,
+        next.name, next.modality, next.kind, next.durationMin, next.openBooking])
     await audit(t, req.user.id, 'session.update', 'session', id, { from: current, changes: body })
-    return updated
+    return { updated, affected: moved ? n : 0 }
   })
-  res.json({ session, conflicts: await findConflicts(db, { ...session, excludeId: id }) })
+  const session = result.updated
+  res.json({ session, affected: result.affected, conflicts: await findConflicts(db, { ...session, excludeId: id }) })
+}))
+
+// Borrar solo una clase suelta creada por error y sin ninguna reserva; lo demás se cancela.
+router.delete('/sessions/:id', admin, h(async (req, res) => {
+  const { id } = parse(z.object({ id: uuid }), req.params)
+  await tx(async (t) => {
+    const current = await t.one('select * from class_sessions where id = $1 for update', [id])
+    if (!current) throw new HttpError(404, 'Clase no encontrada', 'NOT_FOUND')
+    if (current.groupId) throw new HttpError(409, 'Esta clase es parte de un grupo fijo: cancélala en lugar de borrarla', 'IN_GROUP')
+    const used = await t.one('select 1 as x from bookings where session_id = $1 limit 1', [id])
+    if (used) throw new HttpError(409, 'Esta clase tiene o tuvo reservas: cancélala en lugar de borrarla', 'HAS_BOOKINGS')
+    await t.run('delete from class_sessions where id = $1', [id])
+    await audit(t, req.user.id, 'session.delete', 'session', id, { deleted: current })
+  })
+  res.json({ ok: true })
 }))
 
 // ─── GRUPOS RECURRENTES ────────────────────────────────

@@ -1,13 +1,44 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowRightLeft, Ban, MessageCircle, Plus, RotateCcw, Search, UserPlus } from 'lucide-react'
+import { ArrowRightLeft, Ban, MessageCircle, Pencil, Plus, RotateCcw, Search, Trash2, UserPlus } from 'lucide-react'
 import { api } from '../../lib/api'
 import { useAuth } from '../../lib/auth'
-import { ATTENDANCE, BOOKING_STATUS, INTAKE, KIND, MODALITY, addDays, capitalize, dayLabel, fmtDate, fmtTime, todayCR, waLink } from '../../lib/format'
+import { ATTENDANCE, BOOKING_STATUS, INTAKE, KIND, MODALITY, addDays, capitalize, dayLabel, firstName, fmtDate, fmtTime, todayCR, waLink } from '../../lib/format'
 import { Avatar, Badge, Button, EmptyState, ErrorState, Field, IconButton, Input, Occupancy, Select, SkeletonList, cx } from '../../ui'
 import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
+import ClassForm from './ClassForm'
+
+// El nombre de la clase suele llevar la hora vieja: el mensaje dice solo el horario nuevo.
+const changeMessage = (name, session) =>
+  `Hola ${firstName(name)}, te escribo de Pilates by Riven. Cambiamos el horario de tu clase de ${MODALITY[session.modality]}: ahora es el ${fmtDate(session.localDate, { weekday: 'long' })} ${fmtDate(session.localDate, { day: 'numeric', month: 'long' })} a las ${fmtTime(session.localTime)} ¿Te queda bien? ¡Gracias!`
+
+/** Después de mover una clase: un botón de WhatsApp por clienta, con el mensaje listo para revisar. */
+function ChangeNotice({ session, bookings, onClose }) {
+  const people = bookings.filter((b) => ['pending', 'confirmed', 'waitlisted'].includes(b.status))
+  if (!people.length) return null
+  return (
+    <div className="space-y-3 rounded-3xl border border-clay/40 bg-clay-soft/60 p-4">
+      <div>
+        <p className="text-sm font-semibold text-ink">Avisa del cambio a {people.length === 1 ? 'la clienta' : `las ${people.length} clientas`}</p>
+        <p className="mt-0.5 text-[13px] text-ink-2">El mensaje se abre en WhatsApp para que lo revises antes de enviarlo.</p>
+      </div>
+      <ul className="space-y-2">
+        {people.map((b) => (
+          <li key={b.id} className="flex items-center gap-3">
+            <Avatar name={b.fullName} size="sm" />
+            <p className="min-w-0 flex-1 truncate text-sm font-medium text-ink">{b.fullName}</p>
+            {b.whatsapp
+              ? <Button size="sm" variant="whatsapp" icon={MessageCircle} href={waLink(b.whatsapp, changeMessage(b.fullName, session))}>Avisar</Button>
+              : <span className="text-[13px] text-ink-3">Sin WhatsApp</span>}
+          </li>
+        ))}
+      </ul>
+      <Button size="sm" variant="ghost" onClick={onClose}>Listo</Button>
+    </div>
+  )
+}
 
 const ATTENDANCE_OPTIONS = [
   ['attended', 'Asistió'],
@@ -190,6 +221,9 @@ export default function SessionSheet({ sessionId, onClose }) {
   const [adding, setAdding] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [reason, setReason] = useState('')
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [notice, setNotice] = useState(false)
 
   const query = useQuery({
     queryKey: ['session', sessionId],
@@ -207,7 +241,13 @@ export default function SessionSheet({ sessionId, onClose }) {
     onError: toast.error,
   })
 
-  const close = () => { setAdding(false); setCancelling(false); setReason(''); onClose() }
+  const remove = useMutation({
+    mutationFn: () => api.delete(`/admin/sessions/${sessionId}`),
+    onSuccess: async () => { await refresh(); toast.success('Clase borrada'); close() },
+    onError: (err) => { setDeleting(false); toast.error(err) },
+  })
+
+  const close = () => { setAdding(false); setCancelling(false); setReason(''); setEditing(false); setDeleting(false); setNotice(false); onClose() }
   const session = query.data?.session
   const bookings = query.data?.bookings || []
   const started = session ? new Date(session.startsAt) <= new Date() : false
@@ -222,10 +262,23 @@ export default function SessionSheet({ sessionId, onClose }) {
   const roster = bookings.filter((b) => b.status !== 'waitlisted')
   const waitlist = bookings.filter((b) => b.status === 'waitlisted')
   const unmarked = roster.filter((b) => (b.status === 'pending' || b.status === 'confirmed') && !b.attendance)
+  const hasBookings = bookings.some((b) => ['pending', 'confirmed', 'waitlisted'].includes(b.status))
+  // Solo una clase suelta y sin ninguna reserva (ni pasada) se borra; las demás se cancelan.
+  const deletable = session && !session.groupId && bookings.length === 0
 
   return (
+    <>
+    {editing && session && (
+      <ClassForm
+        mode="edit"
+        session={session}
+        hasBookings={hasBookings}
+        onClose={() => setEditing(false)}
+        onSaved={(data) => { if (data.affected > 0) setNotice(true) }}
+      />
+    )}
     <Sheet
-      open={!!sessionId}
+      open={!!sessionId && !editing}
       onClose={close}
       size="lg"
       title={session ? session.name : 'Clase'}
@@ -242,7 +295,12 @@ export default function SessionSheet({ sessionId, onClose }) {
             {cancelled && <Badge tone="terracotta">Cancelada</Badge>}
             {session.blocked && <Badge tone="honey">Fecha bloqueada</Badge>}
             <span className="ml-auto"><Occupancy taken={session.taken} capacity={session.capacity} /></span>
+            {isAdmin && !started && !cancelled && (
+              <Button size="sm" variant="secondary" icon={Pencil} onClick={() => { setNotice(false); setEditing(true) }}>Editar</Button>
+            )}
           </div>
+
+          {notice && <ChangeNotice session={session} bookings={bookings} onClose={() => setNotice(false)} />}
 
           {cancelled && session.cancelReason && (
             <p className="rounded-2xl bg-terracotta-soft px-4 py-3 text-sm text-terracotta">Motivo: {session.cancelReason}</p>
@@ -288,13 +346,25 @@ export default function SessionSheet({ sessionId, onClose }) {
                     <Button variant="ghost" onClick={() => setCancelling(false)}>Volver</Button>
                   </div>
                 </div>
+              ) : deleting ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-ink-2">La clase se borra de la agenda. No se puede deshacer.</p>
+                  <div className="flex gap-2">
+                    <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Borrar la clase</Button>
+                    <Button variant="ghost" onClick={() => setDeleting(false)}>Volver</Button>
+                  </div>
+                </div>
               ) : (
-                <Button variant="ghost" icon={Ban} className="!text-terracotta" onClick={() => setCancelling(true)}>Cancelar esta clase</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="ghost" icon={Ban} className="!text-terracotta" onClick={() => setCancelling(true)}>Cancelar esta clase</Button>
+                  {deletable && <Button variant="ghost" icon={Trash2} className="!text-terracotta" onClick={() => setDeleting(true)}>Borrar</Button>}
+                </div>
               )}
             </div>
           )}
         </div>
       )}
     </Sheet>
+    </>
   )
 }

@@ -7,7 +7,7 @@ import { METHOD, PAYMENT_STATUS, PRODUCT_KIND, addDays, fmtDate, fmtMoney, month
 import { Avatar, Badge, Button, Card, EmptyState, ErrorState, Field, IconButton, Input, PageHeader, Segmented, Select, SkeletonList, cx } from '../../ui'
 import Sheet from '../../ui/Sheet'
 import { useToast } from '../../ui/Toast'
-import { PackageRow, PackageSheet, SellPackageSheet, useRefreshMoney } from './commerce'
+import { PackageRow, PackageSheet, PaymentFixSheet, SellPackageSheet, useRefreshMoney } from './commerce'
 
 const TABS = [
   { value: 'due', label: 'Por cobrar', empty: 'No hay saldos por cobrar.' },
@@ -73,6 +73,7 @@ function PackageList({ view, onOpen }) {
 function PaymentsList({ onOpenPackage }) {
   const toast = useToast()
   const refresh = useRefreshMoney()
+  const [fixing, setFixing] = useState(null)
   const [period, setPeriod] = useState('month')
   const [custom, setCustom] = useState({ from: '', to: '' })
   const [status, setStatus] = useState('all')
@@ -130,7 +131,8 @@ function PaymentsList({ onOpenPackage }) {
             <div className="divide-y divide-line">
               {rows.map((y) => {
                 const refund = y.kind === 'refund'
-                const state = refund ? { label: 'Reembolso', tone: 'terracotta' } : PAYMENT_STATUS[y.status]
+                const voided = y.status === 'voided'
+                const state = voided ? { label: refund ? 'Reembolso anulado' : 'Anulado', tone: PAYMENT_STATUS.voided.tone } : refund ? { label: 'Reembolso', tone: 'terracotta' } : PAYMENT_STATUS[y.status]
                 return (
                   <div key={y.id} className={cx('flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 sm:px-5 lg:grid', COLS)}>
                     <div className="flex min-w-0 basis-full items-center gap-3 lg:basis-auto">
@@ -148,13 +150,14 @@ function PaymentsList({ onOpenPackage }) {
                         : <span className="text-ink-3">Sin paquete</span>}
                     </p>
                     <div className="flex-1 pl-11 lg:pl-0 lg:text-right">
-                      <p className={cx('display tnum text-xl', refund ? 'text-terracotta' : 'text-ink')}>{fmtMoney(refund ? -y.amountCents : y.amountCents, y.currency)}</p>
+                      <p className={cx('display tnum text-xl', voided ? 'text-ink-3 line-through' : refund ? 'text-terracotta' : 'text-ink')}>{fmtMoney(refund ? -y.amountCents : y.amountCents, y.currency)}</p>
                       {y.refundedCents > 0 && <p className="tnum text-xs text-terracotta">Reembolsado {fmtMoney(y.refundedCents, y.currency)}</p>}
                     </div>
                     <div className="flex items-center justify-end gap-2">
                       {y.status === 'to_verify' && !refund
                         ? <Button size="sm" loading={verify.isPending && verify.variables === y.id} onClick={() => verify.mutate(y.id)}>Verificar</Button>
                         : <Badge tone={state.tone}>{state.label}</Badge>}
+                      {!['rejected', 'voided'].includes(y.status) && <IconButton icon={Pencil} label={`Corregir pago de ${y.fullName}`} onClick={() => setFixing(y)} />}
                       {y.hasProof && <IconButton icon={Paperclip} label="Ver comprobante" onClick={() => api.openFile(`/admin/payments/${y.id}/proof`).catch(toast.error)} />}
                       {y.packageId && <button type="button" className="inline-flex min-h-[36px] items-center px-1 text-[13px] font-semibold text-clay-deep lg:hidden" onClick={() => onOpenPackage(y.packageId)}>Ver</button>}
                     </div>
@@ -165,10 +168,11 @@ function PaymentsList({ onOpenPackage }) {
           </Card>
         </>
       )}
+      {fixing && <PaymentFixSheet payment={fixing} onClose={() => setFixing(null)} />}
     </div>
   )
 }
-const COLS = 'lg:grid-cols-[minmax(0,1.6fr)_120px_minmax(0,1.3fr)_minmax(0,1.3fr)_130px_160px] lg:items-center lg:gap-4'
+const COLS = 'lg:grid-cols-[minmax(0,1.6fr)_120px_minmax(0,1.3fr)_minmax(0,1.3fr)_130px_200px] lg:items-center lg:gap-4'
 
 // ─── Catálogo ────────────────────────────────────────────
 function ProductForm({ product, onClose }) {
